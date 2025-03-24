@@ -1,25 +1,39 @@
-# 📦 Streamlit App Starter Kit 
+# 📦 Streamlit App Groupe des BG 
 ```
-⬆️ (Replace above with your app's name)
+⬆️ (Nom de l'app)
 ```
 
-Description of the app ...
+Description de l'app:
+...
+...
+
+...
 
 ## Demo App
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://app-starter-kit.streamlit.app/)
+Lien de l'app sur streamlit (a voir pour plus tard)
 
 ## GitHub Codespaces
 
-Inschallah ça marche mais voila le lien du codespace:https://legendary-space-engine-v6rxw77wj9jp3wxxq.github.dev/
+Pour les codespaces (et plus particulièrement le travail en groupe) comment ça marche ? 
 
-## Section Heading
+Premièrement, chacun travaillera sur une branche particulière. 
+Deuxièmement, les codespaces ne se partagent pas et "work" locally, ce qui veut dire que chaque changement fais sur votre codespace doit être push a la branche correspondante et qu'à chaque fois que vous y retravaillez dessus il faut le mettre a jour (dans le cas ou des changements ont été éffctué par d'autre personne. 
+---
+Code pour commit:
+git add .
+git commit -m "Implemented feature X"
+git push origin feature-name
+---
+---
+Code pour remettre le code a niveau:
+git checkout main
+git pull origin main
+git checkout feature-name
+git merge main
+---
 
-This is filler text, please replace this with text for this section.
+Et voila, pour l'instant c'est tout ce que je sais.
+## Infos Importantes
+Ne pas toucher a la branch "main". 
 
-## Further Reading
-
-This is filler text, please replace this with a explanatory text about further relevant resources for this repo
-- Resource 1
-- Resource 2
-- Resource 3
