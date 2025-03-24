@@ -11,7 +11,7 @@ Description of the app ...
 
 ## GitHub Codespaces
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/streamlit/app-starter-kit?quickstart=1)
+Inschallah ça marche mais voila le lien du codespace:https://legendary-space-engine-v6rxw77wj9jp3wxxq.github.dev/
 
 ## Section Heading
 
