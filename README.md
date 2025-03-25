@@ -4,10 +4,15 @@
 ```
 
 Description de l'app:
-...
-...
 
-...
+Solution: Apportez aux utilisateurs une interface leur permettant de détérminer le trajet optimal pour aller jetter leur poubelle.
+
+L'idée serait que les utilisateurs puissent donner leur poubelle, et le programme détérminerait le trajet optimal. 
+
+Les API, se trouvent dans ce lien:  https://daten.stadt.sg.ch/explore/dataset/abfuhrdaten-stadt-stgallen/information/?disjunctive.gebietsbezeichnung&disjunctive.sammlung&disjunctive.strasse
+
+
+
 
 ## Demo App
 
