@@ -81,8 +81,6 @@ with tab2:
             st.info("Conseils de tri : Ce déchet doit être jeté dans la poubelle jaune pour le recyclage")
         else:
             st.error("Veuillez décrire votre déchet ou télécharger une image")
-
-iserons le modèle ML pour identifier le type de déchet
         # Pour l'instant, nous affichons une réponse fictive
         if waste_description or uploaded_file:
             st.success("D'après notre analyse, il s'agit probablement d'un déchet recyclable de type PLASTIQUE")
