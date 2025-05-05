@@ -11,8 +11,8 @@ def get_coordinates(address, api_key=None):
     """
     # Pour l'exemple, si aucune API n'est disponible, nous retournons des coordonnées fictives
     if api_key is None:
-        # Coordonnées fictives pour Paris
-        return {"lat": 48.8566, "lon": 2.3522}
+        # Coordonnées fictives pour St. Gallen
+        return {"lat": 47.42391, "lon": 47.42391 9.37477}
     
     try:
         # Exemple avec Nominatim (OpenStreetMap) - ne nécessite pas de clé API mais a des limitations d'usage
