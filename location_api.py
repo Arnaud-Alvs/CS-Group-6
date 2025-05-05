@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 # Fonction pour récupérer les coordonnées géographiques (latitude, longitude) à partir d'une adresse
-def get_coordinates(address, api_key=None):
+def get_coordinates(address, api_key="St. Gallen, Switzerland"):
     """
     Utilise l'API de géocodage pour convertir une adresse en coordonnées.
     Dans un vrai projet, vous utiliseriez une API comme Google Maps, OpenStreetMap Nominatim, etc.
