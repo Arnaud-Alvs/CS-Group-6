@@ -22,7 +22,8 @@ def get_coordinates(address, api_key="St. Gallen, Switzerland"):
             "format": "json",
             "limit": 1
         }
-        
+         
+         
         headers = {
             "User-Agent": "TriDéchets App - Projet Universitaire"
         }
