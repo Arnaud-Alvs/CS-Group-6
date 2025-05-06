@@ -31,7 +31,7 @@ def load_model():
         return None
 
 # Interface principale avec onglets
-tab1, tab2, tab3 = st.tabs(["Localiser un point de collecte", "Identifier un déchet", "À propos"])
+tab1, tab2, tab3 = st.tabs(["Identification utilisateurs", "Identifier un déchet", "À propos"])
 
 with tab1:
     st.header("Trouvez où jeter vos déchets")
@@ -82,7 +82,6 @@ with tab2:
         else:
             st.error("Veuillez décrire votre déchet ou télécharger une image")
 
-iserons le modèle ML pour identifier le type de déchet
         # Pour l'instant, nous affichons une réponse fictive
         if waste_description or uploaded_file:
             st.success("D'après notre analyse, il s'agit probablement d'un déchet recyclable de type PLASTIQUE")
