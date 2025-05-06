@@ -7,7 +7,7 @@ import time
 from typing import Dict, List, Optional, Any, Tuple
 import urllib.parse
 
-# Base URL for the API (corrected)
+# Base URL for the API
 BASE_API_URL = "https://daten.stadt.sg.ch"
 
 # Function to get geographic coordinates (latitude, longitude) from an address
@@ -27,14 +27,15 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
         base_url = "https://nominatim.openstreetmap.org/search"
         
         # Ensure address is properly formatted and URL-encoded
-        # Add Switzerland to improve results
-        if "switzerland" not in address.lower() and "schweiz" not in address.lower():
-            address = f"{address}, Switzerland"
+        # Add St. Gallen, Switzerland to improve results
+        if "st.gallen" not in address.lower() and "st. gallen" not in address.lower():
+            address = f"{address}, St. Gallen, Switzerland"
             
         params = {
             "q": address,
             "format": "json",
-            "limit": 1
+            "limit": 1,
+            "addressdetails": 1
         }
         
         headers = {
@@ -147,31 +148,71 @@ def get_collection_points_api(waste_type: str) -> List[Dict[str, Any]]:
         
         if response.status_code != 200:
             st.error(f"Collection points API error: {response.status_code}")
+            print(f"API Error: {response.text}")
             return get_fallback_collection_points(waste_type)
             
         data = response.json()
+        print("API Response sample:", json.dumps(data.get("results", [])[0] if data.get("results") else {}, indent=2))
         
         collection_points = []
         
         for point in data.get("results", []):
+            # Extract the fields (need to check the exact field structure)
+            fields = point.get("record", {}).get("fields", {})
+            
             # Check if the waste type is accepted at this collection point
-            waste_types = point.get("abfallarten", [])
-            if waste_type in waste_types:
-                # Extract coordinates
-                geo = point.get("geo_point_2d", {})
+            # Try different possible field names for waste types
+            waste_types = fields.get("abfallarten", [])
+            if not waste_types:
+                waste_types = fields.get("waste_types", [])
+            if not waste_types:
+                waste_types = fields.get("accepted_waste", [])
+            
+            # If waste_types is a string, split it into a list
+            if isinstance(waste_types, str):
+                waste_types = [w.strip() for w in waste_types.split(',')]
+            
+            # Handle case where waste type might be in different format
+            if waste_type in waste_types or any(waste_type.lower() in wt.lower() for wt in waste_types):
+                # Get coordinates - try different possible structures
+                lat = fields.get("lat", None)
+                lon = fields.get("lon", None)
                 
-                collection_point = {
-                    "id": point.get("sammelstel", ""),
-                    "name": f"Collection Point {point.get('sammelstel', '')}",
-                    "address": point.get("standort", "Address not specified"),
-                    "lat": geo.get("lat", 0),
-                    "lon": geo.get("lon", 0),
-                    "waste_types": waste_types,
-                    "hours": point.get("oeffnungsz", "Hours not specified"),
-                    "distance": 0  # Will be calculated later
-                }
-                collection_points.append(collection_point)
+                # Try alternative structure for coordinates
+                if not lat or not lon:
+                    geo = point.get("geometry", {})
+                    coordinates = geo.get("coordinates", [])
+                    if len(coordinates) >= 2:
+                        lon, lat = coordinates  # GeoJSON format: [longitude, latitude]
+                
+                # Try another structure
+                if not lat or not lon:
+                    geo = fields.get("geo_point_2d", {})
+                    if isinstance(geo, dict):
+                        lat = geo.get("lat", 0)
+                        lon = geo.get("lon", 0)
+                    elif isinstance(geo, list) and len(geo) >= 2:
+                        lat, lon = geo  # [latitude, longitude]
+                
+                # Get other information
+                sammelstel = fields.get("sammelstel", "")
+                standort = fields.get("standort", "Address not specified")
+                oeffnungsz = fields.get("oeffnungsz", "Hours not specified")
+                
+                if lat and lon:
+                    collection_point = {
+                        "id": sammelstel,
+                        "name": f"Collection Point {sammelstel}",
+                        "address": standort,
+                        "lat": float(lat),
+                        "lon": float(lon),
+                        "waste_types": waste_types,
+                        "hours": oeffnungsz,
+                        "distance": 0  # Will be calculated later
+                    }
+                    collection_points.append(collection_point)
         
+        print(f"Found {len(collection_points)} collection points for {waste_type}")
         return collection_points
         
     except requests.exceptions.RequestException as e:
@@ -182,6 +223,8 @@ def get_collection_points_api(waste_type: str) -> List[Dict[str, Any]]:
         
     except Exception as e:
         st.error(f"Error retrieving collection points: {str(e)}")
+        print(f"Exception: {str(e)}")
+        print(f"Type of error: {type(e)}")
         return get_fallback_collection_points(waste_type)
 
 # Function to calculate distance between two geographic points
@@ -255,6 +298,7 @@ def find_collection_points(coordinates: Dict[str, float], waste_type: str, radiu
     # Sort by distance
     nearby_points.sort(key=lambda x: x["distance"])
     
+    print(f"Found {len(nearby_points)} collection points within {radius} km")
     return nearby_points
 
 # Fallback collection dates for when the API is unavailable
@@ -364,18 +408,25 @@ def get_collection_dates(waste_type: str, address: str) -> List[Dict[str, Any]]:
         collection_dates = []
         
         for entry in data.get("results", []):
+            # Extract fields from the record
+            fields = entry.get("record", {}).get("fields", {})
+            
             # Check if collection type matches
-            if entry.get("sammlung") == api_waste_type:
+            if fields.get("sammlung") == api_waste_type:
                 # Check if street is in list of affected streets
-                streets = entry.get("strasse", [])
+                streets = fields.get("strasse", [])
+                
+                # Handle case where streets might be a string
+                if isinstance(streets, str):
+                    streets = [streets]
                 
                 # Partial street name search
                 street_match = any(street.lower() in street_name.lower() or street_name.lower() in street.lower() for street in streets)
                 
                 if street_match:
                     # Format date
-                    date_str = entry.get("datum", "")
-                    time_str = entry.get("zeit", "")
+                    date_str = fields.get("datum", "")
+                    time_str = fields.get("zeit", "")
                     
                     try:
                         collection_date = datetime.strptime(date_str, "%Y-%m-%d")
@@ -385,9 +436,9 @@ def get_collection_dates(waste_type: str, address: str) -> List[Dict[str, Any]]:
                             collection_info = {
                                 "date": date_str,
                                 "time": time_str,
-                                "area": entry.get("gebietsbezeichnung", ""),
-                                "title": entry.get("titel", ""),
-                                "pdf": entry.get("pdf", "")
+                                "area": fields.get("gebietsbezeichnung", ""),
+                                "title": fields.get("titel", ""),
+                                "pdf": fields.get("pdf", "")
                             }
                             collection_dates.append(collection_info)
                     except ValueError:
