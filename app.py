@@ -5,7 +5,18 @@ from PIL import Image
 import requests
 import json
 import pickle
+from datetime import datetime
 from sklearn.ensemble import RandomForestClassifier
+
+# Importer les fonctions du fichier location_api.py
+from location_api import (
+    get_coordinates, 
+    find_collection_points, 
+    get_collection_dates, 
+    format_collection_points, 
+    get_available_waste_types,
+    translate_waste_type
+)
 
 # Configuration de la page
 st.set_page_config(
@@ -19,7 +30,7 @@ st.set_page_config(
 st.title("TriDéchets - Your smart recycling assistant")
 st.markdown("### Trouvez facilement où jeter vos déchets et contribuez à un environnement plus propre")
 
-# Fonction pour charger le modèle ML (nous l'implémenterons plus tard)
+# Fonction pour charger le modèle ML
 @st.cache_resource
 def load_model():
     try:
@@ -30,35 +41,119 @@ def load_model():
         st.warning("Le modèle n'est pas encore disponible. Certaines fonctionnalités seront limitées.")
         return None
 
+# Fonction pour convertir le type de déchet sélectionné dans l'interface utilisateur au format API
+def convert_waste_type_to_api(ui_waste_type):
+    mapping = {
+        "Papier/Carton": "Papier", 
+        "Verre": "Glas",
+        "Plastique": "Plastik",
+        "Métal": "Metall",
+        "Aluminium": "Aluminium",
+        "Boîtes de conserve": "Dosen",
+        "Électronique": "E-Recycling",
+        "Textile": "Textilien",
+        "Dangereux": "Sonderabfall",
+        "Organique": "Grüngut",
+        "Ordures ménagères": "Kehricht"
+    }
+    return mapping.get(ui_waste_type, ui_waste_type)
+
 # Interface principale avec onglets
-tab1, tab2, tab3 = st.tabs(["Identification utilisateurs", "Identifier un déchet", "À propos"])
+tab1, tab2, tab3 = st.tabs(["Trouver un point de collecte", "Identifier un déchet", "À propos"])
 
 with tab1:
     st.header("Trouvez où jeter vos déchets")
     
+    # Récupérer la liste des types de déchets disponibles depuis l'API
+    try:
+        available_waste_types = get_available_waste_types()
+        # Traduire les types de déchets pour l'interface utilisateur
+        translated_waste_types = [translate_waste_type(waste_type) for waste_type in available_waste_types]
+    except Exception:
+        # Fallback en cas d'erreur
+        translated_waste_types = ["Papier/Carton", "Verre", "Plastique", "Métal", "Aluminium", "Boîtes de conserve", 
+                                "Électronique", "Textile", "Dangereux", "Organique", "Ordures ménagères"]
+    
     # Demander le type de déchet
     waste_type = st.selectbox(
         "Quel type de déchet souhaitez-vous jeter ?",
-        ["Papier/Carton", "Verre", "Plastique", "Métal", "Électronique", "Textile", "Dangereux", "Organique", "Autre"]
+        translated_waste_types
     )
     
+    # Convertir le type de déchet sélectionné au format API
+    api_waste_type = convert_waste_type_to_api(waste_type)
+    
     # Demander la localisation
-    user_location = st.text_input("Entrez votre adresse ou code postal")
+    user_location = st.text_input("Entrez votre adresse complète (Rue, Numéro, Ville, Code Postal)")
+    
+    # Rayon de recherche
+    search_radius = st.slider("Rayon de recherche (km)", min_value=1, max_value=10, value=5)
     
     if st.button("Rechercher les points de collecte"):
         if user_location:
-            st.info("Nous recherchons les points de collecte proches de votre localisation...")
-            # Ici nous ferons l'appel à l'API pour trouver les points de collecte
-            # Pour l'instant, nous affichons un message fictif
-            st.success(f"Plusieurs points de collecte pour {waste_type} ont été trouvés près de {user_location}")
-            
-            # Affichage d'une carte fictive pour le moment
-            st.map(pd.DataFrame({
-                'lat': [48.8566],
-                'lon': [2.3522]
-            }))
+            with st.spinner("Recherche des points de collecte en cours..."):
+                # Obtenir les coordonnées géographiques de l'adresse
+                coordinates = get_coordinates(user_location)
+                
+                if coordinates:
+                    # Trouver les points de collecte à proximité
+                    collection_points = find_collection_points(coordinates, api_waste_type, search_radius)
+                    
+                    if collection_points:
+                        st.success(f"{len(collection_points)} points de collecte pour {waste_type} ont été trouvés près de {user_location}")
+                        
+                        # Affichage de la carte
+                        map_data, points = format_collection_points(collection_points)
+                        st.map(map_data)
+                        
+                        # Affichage des détails des points de collecte dans un tableau
+                        st.subheader("Détails des points de collecte")
+                        
+                        # Créer un tableau pour afficher les détails
+                        table_data = []
+                        for point in points:
+                            table_data.append({
+                                "Nom": point["name"],
+                                "Adresse": point["address"],
+                                "Distance (km)": point["distance"],
+                                "Types de déchets acceptés": ", ".join([translate_waste_type(wt) for wt in point["waste_types"]]),
+                                "Horaires": point["hours"] if point["hours"] else "Non spécifié"
+                            })
+                        
+                        st.table(pd.DataFrame(table_data))
+                        
+                        # Rechercher les prochaines dates de collecte
+                        st.subheader("Prochaines dates de collecte")
+                        with st.spinner("Recherche des dates de collecte..."):
+                            collection_dates = get_collection_dates(api_waste_type, user_location)
+                            
+                            if collection_dates:
+                                # Afficher les dates de collecte dans un tableau
+                                date_data = []
+                                for date_info in collection_dates[:5]:  # Limiter à 5 dates
+                                    date_obj = datetime.strptime(date_info["date"], "%Y-%m-%d")
+                                    formatted_date = date_obj.strftime("%d/%m/%Y")
+                                    
+                                    date_data.append({
+                                        "Date": formatted_date,
+                                        "Heure": date_info["time"],
+                                        "Zone": date_info["area"],
+                                        "Titre": date_info["title"]
+                                    })
+                                
+                                st.table(pd.DataFrame(date_data))
+                                
+                                # Lien vers le PDF si disponible
+                                if collection_dates[0].get("pdf"):
+                                    st.markdown(f"[Télécharger le calendrier complet (PDF)]({collection_dates[0]['pdf']})")
+                            else:
+                                st.info("Aucune date de collecte n'a été trouvée pour ce type de déchet à votre adresse.")
+                    else:
+                        st.warning(f"Aucun point de collecte pour {waste_type} n'a été trouvé dans un rayon de {search_radius} km.")
+                else:
+                    st.error("Impossible de localiser l'adresse fournie. Veuillez vérifier et réessayer.")
         else:
-            st.error("Veuillez entrer une adresse ou un code postal")
+            st.error("Veuillez entrer une adresse complète")
 
 with tab2:
     st.header("Identifier votre déchet")
@@ -75,17 +170,44 @@ with tab2:
     
     if st.button("Identifier"):
         # Ici nous utiliserons le modèle ML pour identifier le type de déchet
-        # Pour l'instant, nous affichons une réponse fictive
+        model = load_model()
+        
         if waste_description or uploaded_file:
-            st.success("D'après notre analyse, il s'agit probablement d'un déchet recyclable de type PLASTIQUE")
-            st.info("Conseils de tri : Ce déchet doit être jeté dans la poubelle jaune pour le recyclage")
-        else:
-            st.error("Veuillez décrire votre déchet ou télécharger une image")
-            
-        # Pour l'instant, nous affichons une réponse fictive
-        if waste_description or uploaded_file:
-            st.success("D'après notre analyse, il s'agit probablement d'un déchet recyclable de type PLASTIQUE")
-            st.info("Conseils de tri : Ce déchet doit être jeté dans la poubelle jaune pour le recyclage")
+            with st.spinner("Analyse de votre déchet en cours..."):
+                # Simulation d'analyse pour la démonstration
+                # Dans un vrai projet, vous utiliseriez le modèle ML ici
+                
+                # Pour l'instant, nous simulons une prédiction
+                waste_types = ["Papier", "Verre", "Plastique", "Métal", "Électronique", "Textile", "Dangereux", "Organique"]
+                predicted_type = np.random.choice(waste_types)
+                confidence = np.random.uniform(0.7, 0.95)
+                
+                st.success(f"D'après notre analyse, il s'agit probablement d'un déchet recyclable de type {predicted_type} (confiance: {confidence:.2%})")
+                
+                # Conseils de tri en fonction du type prédit
+                if predicted_type == "Papier":
+                    st.info("Conseils de tri : Ce déchet doit être jeté dans la poubelle ou le container à papier/carton pour le recyclage.")
+                elif predicted_type == "Verre":
+                    st.info("Conseils de tri : Le verre doit être déposé dans les containers à verre spécifiques, généralement triés par couleur.")
+                elif predicted_type == "Plastique":
+                    st.info("Conseils de tri : Ce plastique doit être jeté dans la poubelle jaune pour le recyclage.")
+                elif predicted_type == "Métal":
+                    st.info("Conseils de tri : Les métaux peuvent être déposés dans les déchetteries ou points de collecte spécialisés.")
+                elif predicted_type == "Électronique":
+                    st.info("Conseils de tri : Les déchets électroniques doivent être déposés dans des points de collecte spécifiques ou en déchetterie.")
+                elif predicted_type == "Textile":
+                    st.info("Conseils de tri : Les textiles peuvent être déposés dans des bornes de collecte spécifiques ou donnés à des associations.")
+                elif predicted_type == "Dangereux":
+                    st.info("Conseils de tri : Les déchets dangereux doivent être apportés en déchetterie dans les conteneurs spécifiques.")
+                elif predicted_type == "Organique":
+                    st.info("Conseils de tri : Ces déchets peuvent être compostés ou jetés dans les bacs à déchets organiques.")
+                
+                # Proposer de trouver un point de collecte pour ce type de déchet
+                st.markdown("---")
+                if st.button("Trouver un point de collecte pour ce type de déchet"):
+                    st.session_state.waste_type = predicted_type
+                    st.session_state.active_tab = "Trouver un point de collecte"
+                    st.experimental_rerun()
         else:
             st.error("Veuillez décrire votre déchet ou télécharger une image")
 
@@ -102,6 +224,7 @@ with tab3:
     - Aidant les utilisateurs à identifier correctement leurs déchets
     - Fournissant des conseils personnalisés pour le tri
     - Localisant les points de collecte les plus proches
+    - Informant sur les prochaines dates de collecte
     - Sensibilisant à l'importance du recyclage
     
     ## Technologies utilisées
@@ -111,6 +234,7 @@ with tab3:
     - **Streamlit**: pour l'interface utilisateur
     - **Machine Learning**: pour l'identification des déchets
     - **API de géolocalisation**: pour trouver les points de collecte
+    - **API Open Data**: pour les données de collecte de déchets de St. Gallen
     - **Traitement de données**: pour analyser et classifier les déchets
     
     ## Comment ça marche?
@@ -120,6 +244,8 @@ with tab3:
     2. **Conseils personnalisés**: En fonction du type de déchet identifié, nous vous fournissons des conseils spécifiques pour son tri.
     
     3. **Localisation des points de collecte**: Nous vous aidons à trouver les points de collecte les plus proches de chez vous pour déposer vos déchets.
+    
+    4. **Dates de collecte**: Nous vous informons des prochaines dates de collecte pour vos déchets dans votre zone.
     """)
     
     # Affichage de statistiques fictives sur l'utilisation de l'application
@@ -169,7 +295,7 @@ with st.sidebar:
         """, unsafe_allow_html=True)
     
     # Langue de l'application (simulée)
-    st.selectbox("Langue", ["Français", "English", "Español", "Deutsch"])
+    st.selectbox("Langue", ["Français", "English", "Deutsch", "Italiano"])
     
     # Conseils du jour
     st.subheader("Le conseil du jour")
@@ -178,10 +304,26 @@ with st.sidebar:
         "Le verre se recycle à l'infini sans perdre sa qualité!",
         "Un téléphone portable contient plus de 70 matériaux différents, dont beaucoup sont recyclables.",
         "Les piles contiennent des métaux lourds toxiques, ne les jetez jamais avec les ordures ménagères.",
-        "Pensez à apposer un autocollant 'Stop Pub' sur votre boîte aux lettres pour réduire vos déchets papier."
+        "Pensez à apposer un autocollant 'Stop Pub' sur votre boîte aux lettres pour réduire vos déchets papier.",
+        "Le compostage peut réduire jusqu'à 30% du volume de vos déchets ménagers.",
+        "Pensez à défaire les emballages en carton avant de les jeter pour gagner de la place.",
+        "Les ampoules à LED sont moins nocives pour l'environnement et durent plus longtemps."
     ]
     import random
     st.info(random.choice(tips_of_the_day))
+    
+    # Séparateur
+    st.markdown("---")
+    
+    # Carte des points de collecte à St. Gallen
+    st.subheader("Carte générale")
+    
+    # Afficher une petite carte centrée sur St. Gallen
+    st_gallen_map = pd.DataFrame({
+        'lat': [47.4245],
+        'lon': [9.3767]
+    })
+    st.map(st_gallen_map)
     
     # Séparateur
     st.markdown("---")
@@ -190,12 +332,9 @@ with st.sidebar:
     st.subheader("Liens utiles")
     st.markdown("[Guide complet du recyclage](https://example.com)")
     st.markdown("[Réduire ses déchets au quotidien](https://example.com)")
-    st.markdown("[Législation sur les déchets](https://example.com)")
+    st.markdown("[Législation sur les déchets en Suisse](https://example.com)")
+    st.markdown("[Site officiel de la ville de St. Gallen](https://www.stadt.sg.ch/)")
 
 # Pied de page
 st.markdown("---")
 st.markdown("© 2025 TriDéchets - Projet universitaire | [Contact](mailto:contact@tridechets.example.com) | [Mentions légales](https://example.com)")
-
-# Pied de page
-st.markdown("---")
-st.markdown("© 2025 TriDéchets - Projet universitaire")
