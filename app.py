@@ -108,11 +108,15 @@ with tab1:
     # Convert selected waste type to API format
     api_waste_type = convert_waste_type_to_api(waste_type)
     
-    # Ask for location
-    user_location = st.text_input("Enter your full address (Street, Number, City, Postal Code)")
+    # Ask for location (with more specific instructions)
+    user_location = st.text_input(
+        "Enter your address in St. Gallen", 
+        placeholder="Example: Bahnhofstrasse 1, 9000 St. Gallen",
+        help="Enter your complete address including street name, number, postal code, and city"
+    )
     
-    # Search radius
-    search_radius = st.slider("Search radius (km)", min_value=1, max_value=10, value=5)
+    # Fixed radius (not visible to user)
+    search_radius = 10  # 10 km maximum search radius
     
     if st.button("Search for collection points"):
         if user_location:
@@ -121,15 +125,26 @@ with tab1:
                 coordinates = get_coordinates(user_location)
                 
                 if coordinates:
+                    st.info(f"✓ Found your location: {coordinates['lat']:.4f}, {coordinates['lon']:.4f}")
+                    
                     # Find nearby collection points
                     collection_points = find_collection_points(coordinates, api_waste_type, search_radius)
                     
                     if collection_points:
-                        st.success(f"{len(collection_points)} collection points for {waste_type} have been found near {user_location}")
+                        st.success(f"Found {len(collection_points)} collection points for {waste_type} within 10 km of your location")
                         
                         # Display map
                         map_data, points = format_collection_points(collection_points)
-                        st.map(map_data)
+                        
+                        # Add user location to the map
+                        user_marker = pd.DataFrame([{
+                            'lat': coordinates['lat'],
+                            'lon': coordinates['lon'],
+                            'name': 'Your Location 📍'
+                        }])
+                        
+                        all_map_data = pd.concat([map_data, user_marker], ignore_index=True)
+                        st.map(all_map_data)
                         
                         # Display collection point details in a table
                         st.subheader("Collection point details")
@@ -148,7 +163,10 @@ with tab1:
                                 "Hours": point["hours"] if point["hours"] else "Not specified"
                             })
                         
-                        st.table(pd.DataFrame(table_data))
+                        # Sort by distance
+                        df = pd.DataFrame(table_data)
+                        df = df.sort_values("Distance (km)")
+                        st.table(df)
                         
                         # Search for upcoming collection dates
                         st.subheader("Upcoming collection dates")
@@ -177,11 +195,11 @@ with tab1:
                             else:
                                 st.info("No collection dates were found for this type of waste at your address.")
                     else:
-                        st.warning(f"No collection points for {waste_type} were found within a {search_radius} km radius.")
+                        st.warning(f"No collection points for {waste_type} were found within 10 km of your location. Try searching for a different waste type or check if you entered the correct address.")
                 else:
-                    st.error("Unable to locate the provided address. Please check and try again.")
+                    st.error("Unable to locate the provided address. Please make sure to enter a complete address in St. Gallen, Switzerland.")
         else:
-            st.error("Please enter a complete address")
+            st.error("Please enter your full address to search for collection points")
 
 with tab2:
     st.header("Identify your waste")
@@ -260,7 +278,6 @@ with tab2:
 
         else:
             st.error("Please describe your waste or upload an image")
-            
 
 with tab3:
     st.header("About WasteWise")
