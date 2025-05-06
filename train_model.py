@@ -1,4 +1,4 @@
-import stramlit as st
+import streamlit as st
         # Pour l'instant, nous affichons une réponse fictive
         if waste_description or uploaded_file:
             st.success("D'après notre analyse, il s'agit probablement d'un déchet recyclable de type PLASTIQUE")
