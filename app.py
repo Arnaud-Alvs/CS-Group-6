@@ -9,14 +9,14 @@ from sklearn.ensemble import RandomForestClassifier
 
 # Configuration de la page
 st.set_page_config(
-    page_title="TriDéchets - Votre assistant de recyclage",
+    page_title="TriDéchets - Your smart recycling assistant",
     page_icon="♻️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # Titre de l'application
-st.title("TriDéchets - Votre assistant de recyclage intelligent")
+st.title("TriDéchets - Your smart recycling assistant")
 st.markdown("### Trouvez facilement où jeter vos déchets et contribuez à un environnement plus propre")
 
 # Fonction pour charger le modèle ML (nous l'implémenterons plus tard)
@@ -82,6 +82,7 @@ with tab2:
         else:
             st.error("Veuillez décrire votre déchet ou télécharger une image")
 
+iserons le modèle ML pour identifier le type de déchet
         # Pour l'instant, nous affichons une réponse fictive
         if waste_description or uploaded_file:
             st.success("D'après notre analyse, il s'agit probablement d'un déchet recyclable de type PLASTIQUE")
