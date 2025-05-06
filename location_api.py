@@ -5,46 +5,57 @@ import streamlit as st
 from datetime import datetime
 import time
 from typing import Dict, List, Optional, Any, Tuple
+import urllib.parse
 
-# Base URL pour l'API
+# Base URL for the API
 BASE_API_URL = "https://data.stadt.sg.ch"
 
-# Fonction pour récupérer les coordonnées géographiques (latitude, longitude) à partir d'une adresse
+# Function to get geographic coordinates (latitude, longitude) from an address
 def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dict[str, float]]:
     """
-    Utilise l'API de géocodage pour convertir une adresse en coordonnées.
+    Uses geocoding API to convert an address to coordinates.
     
     Args:
-        address: L'adresse à géocoder
-        api_key: Clé API optionnelle pour les services payants
+        address: The address to geocode
+        api_key: Optional API key for paid services
         
     Returns:
-        Un dictionnaire contenant les clés 'lat' et 'lon', ou None en cas d'erreur
+        Dictionary containing 'lat' and 'lon' keys, or None in case of error
     """
     try:
-        # Utilisation de Nominatim (OpenStreetMap) - ne nécessite pas de clé API mais a des limitations d'usage
+        # Using Nominatim (OpenStreetMap) - doesn't require an API key but has usage limitations
         base_url = "https://nominatim.openstreetmap.org/search"
+        
+        # Ensure address is properly formatted and URL-encoded
+        # Add Switzerland to improve results
+        if "switzerland" not in address.lower() and "schweiz" not in address.lower():
+            address = f"{address}, Switzerland"
+            
         params = {
             "q": address,
             "format": "json",
-            "limit": 1,
-            "country": "Switzerland"  # Limitation à la Suisse pour de meilleurs résultats
+            "limit": 1
         }
         
         headers = {
-            "User-Agent": "TriDéchets App - Projet Universitaire"
+            "User-Agent": "TriDéchets App - University Project"
         }
         
-        # Ajout d'un délai pour respecter les conditions d'utilisation de Nominatim
+        # Add a delay to respect Nominatim's usage conditions
         time.sleep(1)
+        
+        # Debug info
+        print(f"Sending request to: {base_url} with params: {params}")
         
         response = requests.get(base_url, params=params, headers=headers)
         
         if response.status_code != 200:
-            st.error(f"Erreur de l'API de géocodage: {response.status_code}")
+            st.error(f"Geocoding API error: {response.status_code}")
+            print(f"API Error: {response.text}")
             return None
             
         data = response.json()
+        print(f"API Response: {data}")
         
         if data and len(data) > 0:
             return {
@@ -52,34 +63,35 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
                 "lon": float(data[0]["lon"])
             }
         else:
-            st.error(f"Impossible de trouver les coordonnées pour l'adresse: {address}")
+            st.error(f"Unable to find coordinates for address: {address}")
             return None
             
     except Exception as e:
-        st.error(f"Erreur lors de la recherche des coordonnées: {str(e)}")
+        st.error(f"Error while searching for coordinates: {str(e)}")
+        print(f"Exception in get_coordinates: {str(e)}")
         return None
 
-# Fonction pour récupérer les points de collecte réels depuis l'API
+# Function to retrieve real collection points from the API
 def get_collection_points_api(waste_type: str) -> List[Dict[str, Any]]:
     """
-    Récupère tous les points de collecte depuis l'API
+    Retrieves all collection points from the API
     
     Args:
-        waste_type: Type de déchet recherché
+        waste_type: Type of waste being searched for
         
     Returns:
-        Liste de points de collecte
+        List of collection points
     """
     try:
         api_url = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/sammelstellen/records"
         params = {
-            "limit": 100  # Augmenter la limite pour récupérer plus de points
+            "limit": 100  # Increase limit to retrieve more points
         }
         
         response = requests.get(api_url, params=params)
         
         if response.status_code != 200:
-            st.error(f"Erreur de l'API des points de collecte: {response.status_code}")
+            st.error(f"Collection points API error: {response.status_code}")
             return []
             
         data = response.json()
@@ -87,82 +99,83 @@ def get_collection_points_api(waste_type: str) -> List[Dict[str, Any]]:
         collection_points = []
         
         for point in data.get("results", []):
-            # Vérifier si le type de déchet est accepté à ce point de collecte
-            if "abfallarten" in point and waste_type in point["abfallarten"]:
-                # Extraire les coordonnées
+            # Check if the waste type is accepted at this collection point
+            waste_types = point.get("abfallarten", [])
+            if waste_type in waste_types:
+                # Extract coordinates
                 geo = point.get("geo_point_2d", {})
                 
                 collection_point = {
                     "id": point.get("sammelstel", ""),
-                    "name": f"Point de collecte {point.get('sammelstel', '')}",
-                    "address": point.get("standort", "Adresse non spécifiée"),
+                    "name": f"Collection Point {point.get('sammelstel', '')}",
+                    "address": point.get("standort", "Address not specified"),
                     "lat": geo.get("lat", 0),
                     "lon": geo.get("lon", 0),
-                    "waste_types": point.get("abfallarten", []),
-                    "hours": point.get("oeffnungsz", "Horaires non spécifiés"),
-                    "distance": 0  # Sera calculé plus tard
+                    "waste_types": waste_types,
+                    "hours": point.get("oeffnungsz", "Hours not specified"),
+                    "distance": 0  # Will be calculated later
                 }
                 collection_points.append(collection_point)
         
         return collection_points
         
     except Exception as e:
-        st.error(f"Erreur lors de la récupération des points de collecte: {str(e)}")
+        st.error(f"Error retrieving collection points: {str(e)}")
         return []
 
-# Fonction pour calculer la distance entre deux points géographiques
+# Function to calculate distance between two geographic points
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
-    Calcule la distance approximative en kilomètres entre deux points géographiques
-    en utilisant la formule de Haversine
+    Calculates the approximate distance in kilometers between two geographic points
+    using the Haversine formula
     
     Args:
-        lat1, lon1: Coordonnées du premier point
-        lat2, lon2: Coordonnées du deuxième point
+        lat1, lon1: Coordinates of the first point
+        lat2, lon2: Coordinates of the second point
         
     Returns:
-        Distance en kilomètres
+        Distance in kilometers
     """
     from math import radians, sin, cos, sqrt, atan2
     
-    # Conversion en radians
+    # Convert to radians
     lat1, lon1 = radians(lat1), radians(lon1)
     lat2, lon2 = radians(lat2), radians(lon2)
     
-    # Rayon de la Terre en km
+    # Earth's radius in km
     R = 6371.0
     
-    # Différences
+    # Differences
     dlon = lon2 - lon1
     dlat = lat2 - lat1
     
-    # Formule de Haversine
+    # Haversine formula
     a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
     distance = R * c
     
     return distance
 
-# Fonction principale pour trouver les points de collecte à proximité
+# Main function to find nearby collection points
 def find_collection_points(coordinates: Dict[str, float], waste_type: str, radius: float = 5.0) -> List[Dict[str, Any]]:
     """
-    Trouve les points de collecte à proximité pour un type de déchet spécifique
+    Finds nearby collection points for a specific waste type
     
     Args:
-        coordinates: Dictionnaire contenant la latitude et longitude du point de départ
-        waste_type: Type de déchet recherché
-        radius: Rayon de recherche en kilomètres
+        coordinates: Dictionary containing latitude and longitude of starting point
+        waste_type: Type of waste being searched for
+        radius: Search radius in kilometers
         
     Returns:
-        Liste des points de collecte triés par distance
+        List of collection points sorted by distance
     """
     if not coordinates:
         return []
     
-    # Récupérer tous les points de collecte
+    # Get all collection points
     all_points = get_collection_points_api(waste_type)
     
-    # Calculer la distance pour chaque point et filtrer par rayon
+    # Calculate distance for each point and filter by radius
     nearby_points = []
     
     for point in all_points:
@@ -171,94 +184,97 @@ def find_collection_points(coordinates: Dict[str, float], waste_type: str, radiu
             point["lat"], point["lon"]
         )
         
-        # Convertir en kilomètres et arrondir à 2 décimales
+        # Convert to kilometers and round to 2 decimal places
         point["distance"] = round(distance, 2)
         
-        # Filtrer par rayon
+        # Filter by radius
         if distance <= radius:
             nearby_points.append(point)
     
-    # Trier par distance
+    # Sort by distance
     nearby_points.sort(key=lambda x: x["distance"])
     
     return nearby_points
 
-# Fonction pour récupérer les dates de collecte
+# Function to retrieve collection dates
 def get_collection_dates(waste_type: str, address: str) -> List[Dict[str, Any]]:
     """
-    Récupère les prochaines dates de collecte pour un type de déchet et une adresse
+    Retrieves upcoming collection dates for a waste type and address
     
     Args:
-        waste_type: Type de déchet (ex: "Kehricht", "Karton", "Papier", etc.)
-        address: Adresse pour laquelle rechercher les dates
+        waste_type: Type of waste (e.g., "Kehricht", "Karton", "Papier", etc.)
+        address: Address for which to search for dates
         
     Returns:
-        Liste des prochaines dates de collecte
+        List of upcoming collection dates
     """
     try:
-        # Extraire le nom de la rue de l'adresse
-        # Format attendu: "Rue, Numéro, Ville"
+        # Extract street name from address
+        # Expected format: "Street, Number, City"
         address_parts = address.split(',')
         if len(address_parts) < 1:
             return []
         
         street_name = address_parts[0].strip()
         
-        # Récupérer l'année courante
+        # Get current year
         current_year = datetime.now().year
         
-        # URL de l'API pour les dates de collecte
+        # API URL for collection dates
         api_url = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records"
         
         params = {
             "limit": 100,
-            "refine.datum": str(current_year)  # Filtrer par année courante
+            "refine.datum": str(current_year)  # Filter by current year
         }
         
         response = requests.get(api_url, params=params)
         
         if response.status_code != 200:
-            st.error(f"Erreur de l'API des dates de collecte: {response.status_code}")
+            st.error(f"Collection dates API error: {response.status_code}")
             return []
             
         data = response.json()
         
-        # Conversion de waste_type en termes utilisés par l'API
+        # Convert waste_type to terms used by the API
         waste_type_mapping = {
             "Aluminium": "Alu+Weissblech",
             "Dosen": "Alu+Weissblech",
             "Glas": "Glas",
             "Papier": "Papier",
             "Karton": "Karton",
-            "Kehricht": "Kehricht",  # Ordures ménagères
-            "Metall": "Metall",
-            "Sonderabfall": "Sonderabfall",  # Déchets spéciaux
-            "Grüngut": "Grüngut"  # Déchets verts
+            "Kehricht": "Kehricht",  # Household waste
+            "Altmetall": "Metall",  # Metal
+            "Sonderabfall": "Sonderabfall",  # Hazardous waste
+            "Grüngut": "Grüngut",  # Green waste
+            "Alttextilien": "Alttextilien",  # Textiles
+            "Altöl": "Altöl",  # Oil
+            "Styropor": "Styropor"  # Foam packaging
         }
         
         api_waste_type = waste_type_mapping.get(waste_type, waste_type)
         
-        # Filtrer les résultats
+        # Filter results
         collection_dates = []
         
         for entry in data.get("results", []):
-            # Vérifier si le type de collecte correspond
+            # Check if collection type matches
             if entry.get("sammlung") == api_waste_type:
-                # Vérifier si la rue est dans la liste des rues concernées
+                # Check if street is in list of affected streets
                 streets = entry.get("strasse", [])
                 
-                # Recherche partielle du nom de la rue
+                # Partial street name search
                 street_match = any(street.lower() in street_name.lower() or street_name.lower() in street.lower() for street in streets)
                 
                 if street_match:
-                    # Formater la date
+                    # Format date
                     date_str = entry.get("datum", "")
                     time_str = entry.get("zeit", "")
                     
                     try:
                         collection_date = datetime.strptime(date_str, "%Y-%m-%d")
                         
-                        # Ne conserver que les dates futures
+                        # Keep only future dates
                         if collection_date >= datetime.now():
                             collection_info = {
                                 "date": date_str,
@@ -271,30 +287,30 @@ def get_collection_dates(waste_type: str, address: str) -> List[Dict[str, Any]]:
                     except ValueError:
                         continue
         
-        # Trier par date
+        # Sort by date
         collection_dates.sort(key=lambda x: x["date"])
         
         return collection_dates
         
     except Exception as e:
-        st.error(f"Erreur lors de la récupération des dates de collecte: {str(e)}")
+        st.error(f"Error retrieving collection dates: {str(e)}")
         return []
 
-# Fonction pour formater les résultats pour affichage dans Streamlit
+# Function to format results for display in Streamlit
 def format_collection_points(collection_points: List[Dict[str, Any]]) -> Tuple[pd.DataFrame, List[Dict[str, Any]]]:
     """
-    Formate les points de collecte pour affichage dans Streamlit
+    Formats collection points for display in Streamlit
     
     Args:
-        collection_points: Liste des points de collecte
+        collection_points: List of collection points
         
     Returns:
-        Tuple contenant (DataFrame pour la carte, Liste originale des points)
+        Tuple containing (DataFrame for map, Original list of points)
     """
     if not collection_points:
         return pd.DataFrame(columns=["lat", "lon", "name"]), []
     
-    # DataFrame pour la carte
+    # DataFrame for map
     map_data = pd.DataFrame(
         [[point["lat"], point["lon"], point["name"]] for point in collection_points],
         columns=["lat", "lon", "name"]
@@ -302,61 +318,56 @@ def format_collection_points(collection_points: List[Dict[str, Any]]) -> Tuple[p
     
     return map_data, collection_points
 
-# Fonction utilitaire pour traduire les types de déchets
+# Utility function to translate waste types
 def translate_waste_type(waste_type: str) -> str:
     """
-    Traduit les types de déchets de l'API en français
+    Translates waste types from the API to English
     
     Args:
-        waste_type: Type de déchet en allemand
+        waste_type: Waste type in German
         
     Returns:
-        Type de déchet traduit en français
+        Waste type translated to English
     """
     translations = {
         "Aluminium": "Aluminium",
-        "Dosen": "Boîtes de conserve",
-        "Glas": "Verre",
-        "Papier": "Papier",
-        "Karton": "Carton",
-        "Kehricht": "Ordures ménagères",
-        "Metall": "Métal",
-        "Sonderabfall": "Déchets spéciaux",
-        "Grüngut": "Déchets verts"
+        "Dosen": "Cans",
+        "Glas": "Glass",
+        "Papier": "Paper",
+        "Karton": "Cardboard",
+        "Kehricht": "Household waste",
+        "Altmetall": "Metal",
+        "Sonderabfall": "Hazardous waste",
+        "Grüngut": "Green waste",
+        "Alttextilien": "Textiles",
+        "Altöl": "Oil",
+        "Styropor": "Foam packaging"
     }
     
     return translations.get(waste_type, waste_type)
 
-# Fonction pour obtenir la liste de tous les types de déchets disponibles
+# Function to get the list of all available waste types
 def get_available_waste_types() -> List[str]:
     """
-    Récupère la liste de tous les types de déchets disponibles dans l'API
+    Gets the list of all waste types available in the API
     
     Returns:
-        Liste des types de déchets
+        List of waste types
     """
-    try:
-        api_url = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/sammelstellen/records"
-        params = {
-            "limit": 100
-        }
-        
-        response = requests.get(api_url, params=params)
-        
-        if response.status_code != 200:
-            return ["Aluminium", "Dosen", "Glas", "Papier", "Karton", "Kehricht"]
-            
-        data = response.json()
-        
-        # Extraire tous les types de déchets uniques
-        waste_types = set()
-        
-        for point in data.get("results", []):
-            if "abfallarten" in point:
-                waste_types.update(point["abfallarten"])
-        
-        return sorted(list(waste_types))
-        
-    except Exception:
-        # En cas d'erreur, retourner une liste par défaut
-        return ["Aluminium", "Dosen", "Glas", "Papier", "Karton", "Kehricht"]
+    # Predefined list of waste types
+    waste_types = [
+        "Kehricht",    # Household waste
+        "Papier",      # Paper
+        "Karton",      # Cardboard
+        "Glas",        # Glass
+        "Grüngut",     # Green waste
+        "Dosen",       # Cans
+        "Aluminium",   # Aluminium
+        "Altmetall",   # Metal
+        "Alttextilien", # Textiles
+        "Altöl",       # Oil
+        "Sonderabfall", # Hazardous waste
+        "Styropor"     # Foam packaging
+    ]
+    
+    return waste_types
