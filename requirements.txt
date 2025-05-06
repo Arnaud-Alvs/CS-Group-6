@@ -6,3 +6,5 @@ scikit-learn==1.4.0
 requests==2.31.0
 plotly==5.18.0
 python-dotenv==1.0.0
+tensorflow==2.15.0
+scipy>=1.7.0
