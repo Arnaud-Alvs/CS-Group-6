@@ -6,17 +6,38 @@ import requests
 import json
 import pickle
 from datetime import datetime
-from sklearn.ensemble import RandomForestClassifier
+import os
+import sys
+
+# Configure error handling and logging
+import logging
+logging.basicConfig(level=logging.INFO, 
+                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Import functions from location_api.py
-from location_api import (
-    get_coordinates, 
-    find_collection_points, 
-    get_collection_dates, 
-    format_collection_points, 
-    get_available_waste_types,
-    translate_waste_type
-)
+try:
+    from location_api import (
+        get_coordinates, 
+        find_collection_points, 
+        get_collection_dates, 
+        format_collection_points, 
+        get_available_waste_types,
+        translate_waste_type,
+        COLLECTION_POINTS_ENDPOINT,
+        COLLECTION_DATES_ENDPOINT
+    )
+    logger.info(f"Successfully imported location_api functions")
+    logger.info(f"Collection Points API: {COLLECTION_POINTS_ENDPOINT}")
+    logger.info(f"Collection Dates API: {COLLECTION_DATES_ENDPOINT}")
+except ImportError as e:
+    st.error(f"Failed to import from location_api.py: {str(e)}")
+    logger.error(f"Import error: {str(e)}")
+    st.stop()
+except Exception as e:
+    st.error(f"Unexpected error when importing location_api.py: {str(e)}")
+    logger.error(f"Unexpected error: {str(e)}")
+    st.stop()
 
 # Page configuration
 st.set_page_config(
@@ -30,15 +51,63 @@ st.set_page_config(
 st.title("WasteWise - Your smart recycling assistant")
 st.markdown("### Easily find where to dispose of your waste and contribute to a cleaner environment")
 
-# Function to load the ML model
-@st.cache_resource
-def load_model():
+# Function to check if ML models are available
+def check_ml_models_available():
+    """Check if ML model files exist"""
+    required_files = ['waste_classifier.pkl', 'waste_vectorizer.pkl', 'waste_encoder.pkl']
+    
+    for file in required_files:
+        if not os.path.exists(file):
+            return False
+    return True
+
+# Function to check if TensorFlow is available
+def check_tensorflow_available():
+    """Check if TensorFlow is available"""
     try:
-        with open('waste_classifier.pkl', 'rb') as file:
-            model = pickle.load(file)
-        return model
+        import tensorflow
+        return True
+    except ImportError:
+        return False
+
+# Function to load the text model
+@st.cache_resource
+def load_text_model():
+    """Load text classification model"""
+    try:
+        with open('waste_classifier.pkl', 'rb') as f:
+            model = pickle.load(f)
+        with open('waste_vectorizer.pkl', 'rb') as f:
+            vectorizer = pickle.load(f)
+        with open('waste_encoder.pkl', 'rb') as f:
+            encoder = pickle.load(f)
+        return model, vectorizer, encoder
     except FileNotFoundError:
-        st.warning("The model is not yet available. Some features will be limited.")
+        logger.warning("ML model files not found")
+        return None, None, None
+    except Exception as e:
+        logger.error(f"Error loading text model: {str(e)}")
+        return None, None, None
+
+# Function to load the image model
+@st.cache_resource
+def load_image_model():
+    """Load image classification model"""
+    try:
+        # Check if TensorFlow is available
+        if not check_tensorflow_available():
+            logger.warning("TensorFlow not available")
+            return None
+            
+        # Check if model file exists
+        if not os.path.exists("waste_image_classifier.h5"):
+            logger.warning("Image model file not found")
+            return None
+            
+        from tensorflow.keras.models import load_model
+        return load_model("waste_image_classifier.h5")
+    except Exception as e:
+        logger.error(f"Error loading image model: {str(e)}")
         return None
 
 # Function to convert waste type selected in UI to API format
@@ -108,11 +177,15 @@ with tab1:
     # Convert selected waste type to API format
     api_waste_type = convert_waste_type_to_api(waste_type)
     
-    # Ask for location
-    user_location = st.text_input("Enter your full address (Street, Number, City, Postal Code)")
+    # Ask for location (with more specific instructions)
+    user_location = st.text_input(
+        "Enter your address in St. Gallen", 
+        placeholder="Example: Bahnhofstrasse 1, 9000 St. Gallen",
+        help="Enter your complete address including street name, number, postal code, and city"
+    )
     
-    # Search radius
-    search_radius = st.slider("Search radius (km)", min_value=1, max_value=10, value=5)
+    # Fixed radius (not visible to user)
+    search_radius = 10  # 10 km maximum search radius
     
     if st.button("Search for collection points"):
         if user_location:
@@ -121,15 +194,26 @@ with tab1:
                 coordinates = get_coordinates(user_location)
                 
                 if coordinates:
+                    st.info(f"✓ Found your location at coordinates: {coordinates['lat']:.4f}, {coordinates['lon']:.4f}")
+                    
                     # Find nearby collection points
                     collection_points = find_collection_points(coordinates, api_waste_type, search_radius)
                     
                     if collection_points:
-                        st.success(f"{len(collection_points)} collection points for {waste_type} have been found near {user_location}")
+                        st.success(f"Found {len(collection_points)} collection points for {waste_type} within 10 km of your location")
                         
                         # Display map
                         map_data, points = format_collection_points(collection_points)
-                        st.map(map_data)
+                        
+                        # Add user location to the map
+                        user_marker = pd.DataFrame([{
+                            'lat': coordinates['lat'],
+                            'lon': coordinates['lon'],
+                            'name': 'Your Location 📍'
+                        }])
+                        
+                        all_map_data = pd.concat([map_data, user_marker], ignore_index=True)
+                        st.map(all_map_data)
                         
                         # Display collection point details in a table
                         st.subheader("Collection point details")
@@ -148,7 +232,10 @@ with tab1:
                                 "Hours": point["hours"] if point["hours"] else "Not specified"
                             })
                         
-                        st.table(pd.DataFrame(table_data))
+                        # Sort by distance
+                        df = pd.DataFrame(table_data)
+                        df = df.sort_values("Distance (km)")
+                        st.table(df)
                         
                         # Search for upcoming collection dates
                         st.subheader("Upcoming collection dates")
@@ -177,11 +264,11 @@ with tab1:
                             else:
                                 st.info("No collection dates were found for this type of waste at your address.")
                     else:
-                        st.warning(f"No collection points for {waste_type} were found within a {search_radius} km radius.")
+                        st.warning(f"No collection points for {waste_type} were found within 10 km of your location. Try searching for a different waste type or check if you entered the correct address.")
                 else:
-                    st.error("Unable to locate the provided address. Please check and try again.")
+                    st.error("Unable to locate the provided address. Please make sure to enter a complete address in St. Gallen, Switzerland.")
         else:
-            st.error("Please enter a complete address")
+            st.error("Please enter your full address to search for collection points")
 
 with tab2:
     st.header("Identify your waste")
@@ -203,8 +290,12 @@ with tab2:
     # Load fine-tuned image model
     @st.cache_resource
     def load_image_model():
-        from tensorflow.keras.models import load_model
-        return load_model("waste_image_classifier.h5")
+        try:
+            from tensorflow.keras.models import load_model
+            return load_model("waste_image_classifier.h5")
+        except Exception as e:
+            logger.warning(f"Could not load image model: {e}")
+            return None
 
     def predict_from_text(description, model, vectorizer, encoder):
         description = description.lower()
@@ -216,18 +307,23 @@ with tab2:
         return category, confidence
 
     def predict_from_image(img, model, class_names):
-        from tensorflow.keras.preprocessing import image as keras_image
+        try:
+            from tensorflow.keras.preprocessing import image as keras_image
 
-        img = img.resize((224, 224))
-        img_array = keras_image.img_to_array(img)
-        img_array = np.expand_dims(img_array, axis=0)
-        img_array = img_array / 255.0
+            img = img.resize((224, 224))
+            img_array = keras_image.img_to_array(img)
+            img_array = np.expand_dims(img_array, axis=0)
+            img_array = img_array / 255.0
 
-        predictions = model.predict(img_array)
-        predicted_class = class_names[np.argmax(predictions)]
-        confidence = np.max(predictions)
+            predictions = model.predict(img_array)
+            predicted_class = class_names[np.argmax(predictions)]
+            confidence = np.max(predictions)
 
-        return predicted_class, confidence
+            return predicted_class, confidence
+        except Exception as e:
+            logger.error(f"Error in image prediction: {e}")
+            st.error(f"Error analyzing image: {e}")
+            return None, 0.0
 
     # Load models
     text_model, text_vectorizer, text_encoder = load_text_model()
@@ -254,16 +350,44 @@ with tab2:
                     category, confidence = predict_from_text(waste_description, text_model, text_vectorizer, text_encoder)
                     st.success(f"Text analysis result: {category} (confidence: {confidence:.2%})")
 
-                elif uploaded_file:
+                elif uploaded_file and image_model:
                     category, confidence = predict_from_image(image, image_model, image_class_names)
-                    st.success(f"Image analysis result: {category} (confidence: {confidence:.2%})")
+                    if category:
+                        st.success(f"Image analysis result: {category} (confidence: {confidence:.2%})")
 
         else:
             st.error("Please describe your waste or upload an image")
-            
 
 with tab3:
     st.header("About WasteWise")
+    
+    # System status
+    st.subheader("System Status")
+    
+    # Check API connectivity
+    try:
+        test_url = "https://daten.stadt.sg.ch"
+        response = requests.get(test_url, timeout=5)
+        if response.status_code == 200:
+            st.success("✅ St. Gallen API: Connected")
+        else:
+            st.warning(f"⚠️ St. Gallen API: Status code {response.status_code}")
+    except Exception as e:
+        st.error(f"❌ St. Gallen API: Disconnected - {str(e)}")
+    
+    # Check ML models
+    if check_ml_models_available():
+        st.success("✅ Text Classification Model: Available")
+    else:
+        st.error("❌ Text Classification Model: Not found")
+    
+    if os.path.exists("waste_image_classifier.h5"):
+        if check_tensorflow_available():
+            st.success("✅ Image Classification Model: Available")
+        else:
+            st.warning("⚠️ Image Classification Model: File exists but TensorFlow not installed")
+    else:
+        st.error("❌ Image Classification Model: Not found")
     
     # Project description
     st.markdown("""

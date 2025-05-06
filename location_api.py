@@ -8,13 +8,8 @@ from math import radians, sin, cos, sqrt, atan2
 
 # Base API URLs
 BASE_API_URL = "https://daten.stadt.sg.ch"
-COLLECTION_POINTS_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/sammelstellen/records"
-COLLECTION_DATES_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records"
 
-# ----------------------------------------
-# GET COORDINATES
-# ----------------------------------------
-
+# Function to get geographic coordinates (latitude, longitude) from an address
 def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dict[str, float]]:
     """
     Get latitude and longitude from address using OpenStreetMap Nominatim API.
@@ -23,14 +18,18 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
         base_url = "https://nominatim.openstreetmap.org/search"
 
         if "st.gallen" not in address.lower() and "st. gallen" not in address.lower():
-            address = f"{address}, St. Gallen, Switzerland"
-
+            if "switzerland" not in address.lower() and "schweiz" not in address.lower():
+                address = f"{address}, St. Gallen, Switzerland"
+            else:
+                address = address.replace("Switzerland", "St. Gallen, Switzerland").replace("schweiz", "St. Gallen, Schweiz")
+            
         params = {
             "q": address,
             "format": "json",
             "limit": 1,
             "addressdetails": 1,
-            "countrycodes": "ch",
+            "countrycodes": "ch",  # Limit to Switzerland
+            "city": "St. Gallen"   # Focus on St. Gallen
         }
 
         headers = {
@@ -44,21 +43,22 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
             return None
 
         data = response.json()
-
-        if not data:
-            st.error(f"Address not found: {address}")
-            return None
-
-        result = data[0]
-        address_details = result.get("address", {})
-
-        possible_location_keys = ["city", "town", "village", "municipality", "county", "state"]
-        location_found = any("st. gallen" in address_details.get(key, "").lower() or 
-                             "st.gallen" in address_details.get(key, "").lower() 
-                             for key in possible_location_keys)
-
-        if location_found:
-            return {"lat": float(result["lat"]), "lon": float(result["lon"])}
+        
+        if data and len(data) > 0:
+            # Verify the result is in St. Gallen
+            result = data[0]
+            address_details = result.get("address", {})
+            city = address_details.get("city", "").lower()
+            municipality = address_details.get("municipality", "").lower()
+            
+            if "st. gallen" in city or "st.gallen" in city or "st. gallen" in municipality or "st.gallen" in municipality:
+                return {
+                    "lat": float(result["lat"]),
+                    "lon": float(result["lon"])
+                }
+            else:
+                st.warning(f"The address was found outside St. Gallen. Please enter an address within St. Gallen.")
+                return None
         else:
             st.warning(f"The address was found but appears outside St. Gallen. Please verify.")
             return None
@@ -72,74 +72,98 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
 # ----------------------------------------
 
 def get_collection_points_api(waste_type: str) -> List[Dict[str, Any]]:
+    """
+    Retrieves all collection points from the API
+    
+    Args:
+        waste_type: Type of waste being searched for
+        
+    Returns:
+        List of collection points
+    """
     try:
-        params = {"limit": 100}
-        headers = {"User-Agent": "WasteWise App", "Accept": "application/json"}
-
-        response = requests.get(COLLECTION_POINTS_ENDPOINT, params=params, headers=headers, timeout=30)
+        api_url = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/sammelstellen/records"
+        params = {
+            "limit": 100  # Get more results
+        }
+        
+        response = requests.get(api_url, params=params, timeout=30)
+        
         if response.status_code != 200:
-            st.error("Collection points API error")
-            return get_fallback_collection_points(waste_type)
-
+            st.error(f"Collection points API error: {response.status_code}")
+            return []
+            
         data = response.json()
         results = data.get("results", [])
         collection_points = []
-
-        for result in results:
-            fields = result.get("record", {}).get("fields", {})
+        
+        for entry in data.get("results", []):
+            # Extract fields - the API structure might be different
+            fields = entry.get("fields", {}) or entry.get("record", {}).get("fields", {})
+            
+            # Get waste types - try different field names
             waste_types = fields.get("abfallarten", [])
+            if not waste_types:
+                waste_types = fields.get("abfalltyp", [])
+            if not waste_types:
+                waste_types = fields.get("art", [])
+            
+            # Handle case where waste_types is a string
             if isinstance(waste_types, str):
-                waste_types = [w.strip() for w in waste_types.split(",")]
-
-            if waste_type not in waste_types and not any(waste_type.lower() in wt.lower() for wt in waste_types):
-                continue
-
-            geo_point = fields.get("geo_point_2d", {})
-            lat, lon = None, None
-            if isinstance(geo_point, dict):
-                lat = geo_point.get("lat")
-                lon = geo_point.get("lon")
-            elif isinstance(geo_point, list) and len(geo_point) >= 2:
-                lat, lon = geo_point
-
-            if lat and lon:
-                collection_points.append({
-                    "id": fields.get("sammelstel", ""),
-                    "name": f"Collection Point {fields.get('sammelstel', '')}",
-                    "address": fields.get("standort", "Address not specified"),
-                    "lat": float(lat),
-                    "lon": float(lon),
-                    "waste_types": waste_types,
-                    "hours": fields.get("oeffnungsz", "Hours not specified"),
-                    "distance": 0
-                })
-
-        return collection_points or get_fallback_collection_points(waste_type)
-
+                waste_types = [w.strip() for w in waste_types.split(',')]
+            
+            # Check if the waste type is accepted
+            if waste_type in waste_types or any(waste_type.lower() in wt.lower() for wt in waste_types):
+                # Get coordinates - try different structures
+                lat = lon = None
+                
+                # Try various possible locations for coordinates
+                if "geo_point_2d" in fields:
+                    geo = fields["geo_point_2d"]
+                    if isinstance(geo, dict):
+                        lat = geo.get("lat")
+                        lon = geo.get("lon")
+                    elif isinstance(geo, list) and len(geo) >= 2:
+                        lat, lon = geo[0], geo[1]
+                
+                if not lat or not lon:
+                    if "geometry" in entry:
+                        geometry = entry["geometry"]
+                        coordinates = geometry.get("coordinates", [])
+                        if len(coordinates) >= 2:
+                            lon, lat = coordinates[0], coordinates[1]  # GeoJSON format
+                
+                if not lat or not lon:
+                    # Try other field names
+                    lat = fields.get("lat") or fields.get("latitude")
+                    lon = fields.get("lon") or fields.get("longitude")
+                
+                # Only add if we have valid coordinates
+                if lat and lon:
+                    # Get other information
+                    sammelstel = fields.get("sammelstel", "")
+                    standort = fields.get("standort", "Address not specified")
+                    oeffnungsz = fields.get("oeffnungsz", "Hours not specified")
+                    
+                    collection_point = {
+                        "id": sammelstel,
+                        "name": f"Collection Point {sammelstel}" if sammelstel else "Collection Point",
+                        "address": standort,
+                        "lat": float(lat),
+                        "lon": float(lon),
+                        "waste_types": waste_types,
+                        "hours": oeffnungsz,
+                        "distance": 0
+                    }
+                    collection_points.append(collection_point)
+        
+        return collection_points
+        
     except Exception as e:
         st.error(f"Error retrieving collection points: {str(e)}")
-        return get_fallback_collection_points(waste_type)
+        return []
 
-def get_fallback_collection_points(waste_type: str) -> List[Dict[str, Any]]:
-    fallback_points = [
-        {
-            "id": "fallback_01",
-            "name": "St. Gallen Main Recycling Center",
-            "address": "Kehrichtverbrennungsanlage KVA, Hüettenwiesstrasse 50, 9014 St. Gallen",
-            "lat": 47.4245,
-            "lon": 9.3767,
-            "waste_types": ["Kehricht", "Papier", "Karton", "Glas", "Altmetall", "Sonderabfall",
-                            "Alttextilien", "Altöl", "Styropor", "Grüngut", "Dosen", "Aluminium"],
-            "hours": "Monday-Friday 8:00-17:00, Saturday 8:00-12:00",
-            "distance": 0
-        }
-    ]
-    return [p for p in fallback_points if waste_type in p["waste_types"]] or fallback_points
-
-# ----------------------------------------
-# DISTANCE CALCULATION
-# ----------------------------------------
-
+# Function to calculate distance between two geographic points
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     R = 6371.0
     dlat, dlon = radians(lat2 - lat1), radians(lon2 - lon1)
@@ -169,14 +193,21 @@ def get_collection_dates(waste_type: str, address: str) -> List[Dict[str, Any]]:
     try:
         street_name = address.split(",")[0].strip()
         current_year = datetime.now().year
-
-        params = {"limit": 20, "refine.datum": str(current_year)}
-        headers = {"User-Agent": "WasteWise App", "Accept": "application/json"}
-
-        response = requests.get(COLLECTION_DATES_ENDPOINT, params=params, headers=headers, timeout=30)
+        
+        # API URL for collection dates
+        api_url = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records"
+        
+        params = {
+            "limit": 100,
+            "refine.datum": str(current_year)
+        }
+        
+        response = requests.get(api_url, params=params, timeout=30)
+        
         if response.status_code != 200:
-            return get_fallback_collection_dates(waste_type)
-
+            st.error(f"Collection dates API error: {response.status_code}")
+            return []
+            
         data = response.json()
         collection_dates = []
         results = data.get("results", [])
@@ -187,51 +218,53 @@ def get_collection_dates(waste_type: str, address: str) -> List[Dict[str, Any]]:
             "Alttextilien": "Alttextilien", "Altöl": "Altöl", "Styropor": "Styropor"
         }
         api_waste_type = waste_type_mapping.get(waste_type, waste_type)
-
-        for result in results:
-            fields = result.get("record", {}).get("fields", {})
+        
+        # Filter results
+        collection_dates = []
+        
+        for entry in data.get("results", []):
+            fields = entry.get("fields", {}) or entry.get("record", {}).get("fields", {})
+            
+            # Check if collection type matches
             if fields.get("sammlung") == api_waste_type:
                 streets = fields.get("strasse", [])
                 if isinstance(streets, str):
                     streets = [streets]
-
-                if any(street.lower() in street_name.lower() for street in streets):
-                    collection_date = datetime.strptime(fields.get("datum", ""), "%Y-%m-%d")
-                    if collection_date >= datetime.now():
-                        collection_dates.append({
-                            "date": fields.get("datum", ""),
-                            "time": fields.get("zeit", ""),
-                            "area": fields.get("gebietsbezeichnung", ""),
-                            "title": fields.get("titel", ""),
-                            "pdf": fields.get("pdf", "")
-                        })
-
-        return sorted(collection_dates, key=lambda x: x["date"]) or get_fallback_collection_dates(waste_type)
-
+                
+                # Partial street name search
+                street_match = any(street.lower() in street_name.lower() or street_name.lower() in street.lower() for street in streets)
+                
+                if street_match:
+                    # Format date
+                    date_str = fields.get("datum", "")
+                    time_str = fields.get("zeit", "")
+                    
+                    try:
+                        collection_date = datetime.strptime(date_str, "%Y-%m-%d")
+                        
+                        # Keep only future dates
+                        if collection_date >= datetime.now():
+                            collection_info = {
+                                "date": date_str,
+                                "time": time_str,
+                                "area": fields.get("gebietsbezeichnung", ""),
+                                "title": fields.get("titel", ""),
+                                "pdf": fields.get("pdf", "")
+                            }
+                            collection_dates.append(collection_info)
+                    except ValueError:
+                        continue
+        
+        # Sort by date
+        collection_dates.sort(key=lambda x: x["date"])
+        
+        return collection_dates
+        
     except Exception as e:
         st.error(f"Error retrieving collection dates: {str(e)}")
-        return get_fallback_collection_dates(waste_type)
+        return []
 
-def get_fallback_collection_dates(waste_type: str) -> List[Dict[str, Any]]:
-    today = datetime.now()
-    collection_schedules = {
-        "Kehricht": [7, 14, 21, 28], "Papier": [10, 24], "Karton": [10, 24], "Grüngut": [3, 17, 31],
-        "Sonderabfall": [15], "Glas": [20], "Dosen": [10, 24], "Aluminium": [10, 24], "Altmetall": [15],
-        "Alttextilien": [15], "Altöl": [15], "Styropor": [15]
-    }
-    
-    return [{
-        "date": datetime(today.year, today.month, day).strftime("%Y-%m-%d"),
-        "time": "07:00",
-        "area": "St. Gallen Center",
-        "title": f"{translate_waste_type(waste_type)} Collection",
-        "pdf": None
-    } for day in collection_schedules.get(waste_type, [15]) if datetime(today.year, today.month, day) >= today]
-
-# ----------------------------------------
-# FORMAT COLLECTION POINTS FOR STREAMLIT
-# ----------------------------------------
-
+# Function to format results for display in Streamlit
 def format_collection_points(collection_points: List[Dict[str, Any]]) -> Tuple[pd.DataFrame, List[Dict[str, Any]]]:
     if not collection_points:
         return pd.DataFrame(columns=["lat", "lon", "name"]), []
