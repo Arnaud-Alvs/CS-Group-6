@@ -186,7 +186,7 @@ with tab1:
 with tab2:
     st.header("Identify your waste")
 
-    # Load models
+    # Load text model
     @st.cache_resource
     def load_text_model():
         try:
@@ -200,10 +200,11 @@ with tab2:
         except FileNotFoundError:
             return None, None, None
 
+    # Load fine-tuned image model
     @st.cache_resource
     def load_image_model():
-        from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2
-        return MobileNetV2(weights='imagenet')
+        from tensorflow.keras.models import load_model
+        return load_model("waste_image_classifier.h5")
 
     def predict_from_text(description, model, vectorizer, encoder):
         description = description.lower()
@@ -214,35 +215,30 @@ with tab2:
         category = encoder.inverse_transform([prediction])[0]
         return category, confidence
 
-    def predict_from_image(img, model):
+    def predict_from_image(img, model, class_names):
         from tensorflow.keras.preprocessing import image as keras_image
-        from tensorflow.keras.applications.mobilenet_v2 import preprocess_input, decode_predictions
 
         img = img.resize((224, 224))
         img_array = keras_image.img_to_array(img)
         img_array = np.expand_dims(img_array, axis=0)
-        img_array = preprocess_input(img_array)
+        img_array = img_array / 255.0
 
         predictions = model.predict(img_array)
-        decoded = decode_predictions(predictions, top=3)[0]
+        predicted_class = class_names[np.argmax(predictions)]
+        confidence = np.max(predictions)
 
-        imagenet_label = decoded[0][1].lower()
-
-        if "bottle" in imagenet_label:
-            return "Glass 🍾", decoded[0][2]
-        elif "can" in imagenet_label or "tin" in imagenet_label:
-            return "Cans 🥫", decoded[0][2]
-        elif "box" in imagenet_label or "carton" in imagenet_label:
-            return "Cardboard 📦", decoded[0][2]
-        elif "plastic" in imagenet_label or "container" in imagenet_label:
-            return "Foam packaging ☁", decoded[0][2]
-        else:
-            return "Other", decoded[0][2]
+        return predicted_class, confidence
 
     # Load models
     text_model, text_vectorizer, text_encoder = load_text_model()
     image_model = load_image_model()
+    image_class_names = [
+        "Household waste 🗑", "Paper 📄", "Cardboard 📦", "Glass 🍾", "Green waste 🌿", 
+        "Cans 🥫", "Aluminium 🧴", "Foam packaging ☁", "Metal 🪙", "Textiles 👕", 
+        "Oil 🛢", "Hazardous waste ⚠"
+    ]
 
+    # Input from user
     waste_description = st.text_area("Describe your waste (material, size, usage, etc.)")
     uploaded_file = st.file_uploader("Or upload a photo of your waste", type=["jpg", "jpeg", "png"])
 
@@ -259,13 +255,12 @@ with tab2:
                     st.success(f"Text analysis result: {category} (confidence: {confidence:.2%})")
 
                 elif uploaded_file:
-                    category, confidence = predict_from_image(image, image_model)
+                    category, confidence = predict_from_image(image, image_model, image_class_names)
                     st.success(f"Image analysis result: {category} (confidence: {confidence:.2%})")
-                else:
-                    st.warning("No input provided.")
 
         else:
             st.error("Please describe your waste or upload an image")
+            
 
 with tab3:
     st.header("About WasteWise")
