@@ -185,60 +185,85 @@ with tab1:
 
 with tab2:
     st.header("Identify your waste")
-    
-    # Option to describe the waste
+
+    # Load models
+    @st.cache_resource
+    def load_text_model():
+        try:
+            with open('waste_classifier.pkl', 'rb') as f:
+                model = pickle.load(f)
+            with open('waste_vectorizer.pkl', 'rb') as f:
+                vectorizer = pickle.load(f)
+            with open('waste_encoder.pkl', 'rb') as f:
+                encoder = pickle.load(f)
+            return model, vectorizer, encoder
+        except FileNotFoundError:
+            return None, None, None
+
+    @st.cache_resource
+    def load_image_model():
+        from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2
+        return MobileNetV2(weights='imagenet')
+
+    def predict_from_text(description, model, vectorizer, encoder):
+        description = description.lower()
+        X_new = vectorizer.transform([description])
+        prediction = model.predict(X_new)[0]
+        probabilities = model.predict_proba(X_new)[0]
+        confidence = probabilities[prediction]
+        category = encoder.inverse_transform([prediction])[0]
+        return category, confidence
+
+    def predict_from_image(img, model):
+        from tensorflow.keras.preprocessing import image as keras_image
+        from tensorflow.keras.applications.mobilenet_v2 import preprocess_input, decode_predictions
+
+        img = img.resize((224, 224))
+        img_array = keras_image.img_to_array(img)
+        img_array = np.expand_dims(img_array, axis=0)
+        img_array = preprocess_input(img_array)
+
+        predictions = model.predict(img_array)
+        decoded = decode_predictions(predictions, top=3)[0]
+
+        imagenet_label = decoded[0][1].lower()
+
+        if "bottle" in imagenet_label:
+            return "Glass 🍾", decoded[0][2]
+        elif "can" in imagenet_label or "tin" in imagenet_label:
+            return "Cans 🥫", decoded[0][2]
+        elif "box" in imagenet_label or "carton" in imagenet_label:
+            return "Cardboard 📦", decoded[0][2]
+        elif "plastic" in imagenet_label or "container" in imagenet_label:
+            return "Foam packaging ☁", decoded[0][2]
+        else:
+            return "Other", decoded[0][2]
+
+    # Load models
+    text_model, text_vectorizer, text_encoder = load_text_model()
+    image_model = load_image_model()
+
     waste_description = st.text_area("Describe your waste (material, size, usage, etc.)")
-    
-    # Option to upload an image
     uploaded_file = st.file_uploader("Or upload a photo of your waste", type=["jpg", "jpeg", "png"])
-    
+
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded image", width=300)
-    
+
     if st.button("Identify"):
-        # Here we will use the ML model to identify the waste type
-        model = load_model()
-        
         if waste_description or uploaded_file:
             with st.spinner("Analyzing your waste..."):
-                # Simulation of analysis for demonstration
-                # In a real project, you would use the ML model here
-                
-                # For now, we simulate a prediction
-                waste_types = list(convert_waste_type_to_api(wt) for wt in ui_waste_types)
-                predicted_type = np.random.choice(waste_types)
-                confidence = np.random.uniform(0.7, 0.95)
-                
-                # Convert back to UI format for display
-                ui_predicted_type = convert_api_to_ui_waste_type(predicted_type)
-                
-                st.success(f"Based on our analysis, this is likely a recyclable waste of type {ui_predicted_type} (confidence: {confidence:.2%})")
-                
-                # Sorting advice based on predicted type
-                if predicted_type == "Papier":
-                    st.info("Sorting advice: This waste should be disposed of in the paper/cardboard recycling bin.")
-                elif predicted_type == "Glas":
-                    st.info("Sorting advice: Glass should be deposited in specific glass containers, usually sorted by color.")
-                elif predicted_type == "Karton":
-                    st.info("Sorting advice: Cardboard should be folded and stacked for recycling collection.")
-                elif predicted_type == "Altmetall":
-                    st.info("Sorting advice: Metals can be deposited at specialized collection points or recycling centers.")
-                elif predicted_type == "Kehricht":
-                    st.info("Sorting advice: General household waste should go in the regular trash bin.")
-                elif predicted_type == "Alttextilien":
-                    st.info("Sorting advice: Textiles can be deposited in specific collection containers or donated to associations.")
-                elif predicted_type == "Sonderabfall":
-                    st.info("Sorting advice: Hazardous waste must be brought to a recycling center in specific containers.")
-                elif predicted_type == "Grüngut":
-                    st.info("Sorting advice: This waste can be composted or disposed of in organic waste bins.")
-                
-                # Offer to find a collection point for this type of waste
-                st.markdown("---")
-                if st.button("Find a collection point for this type of waste"):
-                    st.session_state.waste_type = ui_predicted_type
-                    st.session_state.active_tab = "Find a collection point"
-                    st.experimental_rerun()
+
+                if waste_description and text_model:
+                    category, confidence = predict_from_text(waste_description, text_model, text_vectorizer, text_encoder)
+                    st.success(f"Text analysis result: {category} (confidence: {confidence:.2%})")
+
+                elif uploaded_file:
+                    category, confidence = predict_from_image(image, image_model)
+                    st.success(f"Image analysis result: {category} (confidence: {confidence:.2%})")
+                else:
+                    st.warning("No input provided.")
+
         else:
             st.error("Please describe your waste or upload an image")
 
