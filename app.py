@@ -9,14 +9,14 @@ from sklearn.ensemble import RandomForestClassifier
 
 # Configuration de la page
 st.set_page_config(
-    page_title="TriDéchets - Votre assistant de recyclage",
+    page_title="TriDéchets - Your smart recycling assistant",
     page_icon="♻️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # Titre de l'application
-st.title("TriDéchets - Votre assistant de recyclage intelligent")
+st.title("TriDéchets - Your smart recycling assistant")
 st.markdown("### Trouvez facilement où jeter vos déchets et contribuez à un environnement plus propre")
 
 # Fonction pour charger le modèle ML (nous l'implémenterons plus tard)
