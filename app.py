@@ -465,14 +465,14 @@ if 'show_results' in st.session_state and st.session_state.show_results:
                 st.session_state.show_results = False
                 st.experimental_rerun()
     # Separator
-    st.markdown("---")
+st.markdown("---")
 
     # --- General Information Section ---
-    st.header("General Waste Information")
+st.header("General Waste Information")
 
     # Tip of the day
-    st.subheader("Tip of the Day")
-    tips_of_the_day = [
+st.subheader("Tip of the Day")
+tips_of_the_day = [
         "Recycling one aluminum can saves enough energy to run a TV for three hours.",
         "Paper can be recycled up to 7 times before the fibers become too short.",
         "Glass is 100% recyclable and can be recycled infinitely without losing its quality!",
@@ -483,17 +483,17 @@ if 'show_results' in st.session_state and st.session_state.show_results:
         "Remember to break down cardboard packaging before disposing of it to save space.",
         "LED bulbs are less harmful to the environment and last longer."
     ]
-    import random
-    st.info(random.choice(tips_of_the_day))
+import random
+st.info(random.choice(tips_of_the_day))
   
     # Separator
-    st.markdown("---")
+st.markdown("---")
     # Useful links (keeping the existing links, replace example.com with actual links if available)
-    st.subheader("Useful links")
-    st.markdown("[Complete recycling guide](https://www.stadt.sg.ch/home/umwelt-energie/entsorgung.html)") # Example link
-    st.markdown("[Reducing waste in everyday life](https://www.bafu.admin.ch/bafu/en/home/topics/waste/guide-to-waste-a-z/avoiding-waste.html)") # Example link
-    st.markdown("[Waste legislation in Switzerland](https://www.bafu.admin.ch/bafu/en/home/topics/waste/legal-basis.html)") # Example link
-    st.markdown("[Official St. Gallen city website](https://www.stadt.sg.ch/)")
+st.subheader("Useful links")
+st.markdown("[Complete recycling guide](https://www.stadt.sg.ch/home/umwelt-energie/entsorgung.html)") # Example link
+st.markdown("[Reducing waste in everyday life](https://www.bafu.admin.ch/bafu/en/home/topics/waste/guide-to-waste-a-z/avoiding-waste.html)") # Example link
+st.markdown("[Waste legislation in Switzerland](https://www.bafu.admin.ch/bafu/en/home/topics/waste/legal-basis.html)") # Example link
+st.markdown("[Official St. Gallen city website](https://www.stadt.sg.ch/)")
 
 with tab2:
     st.header("Identify your waste")
