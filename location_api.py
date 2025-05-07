@@ -537,7 +537,7 @@ def get_available_waste_types() -> List[str]:
 def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
     """
     Handles waste disposal lookup based on user address and waste type.
-    Returns both collection points and scheduled dates when available.
+    Improved to better handle cases where a street exists but doesn't have specific waste collections.
     """
     results = {
         "waste_type": waste_type,
@@ -593,7 +593,7 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
     # 2. Get the next collection date for the waste type
     street_parts = address.split()
     if len(street_parts) >= 2:
-    # Extract full street name without number
+        # Extract full street name without number
         street_number_pattern = r'\d+'
         street_parts_without_numbers = [part for part in street_parts if not re.match(street_number_pattern, part)]
         street_name = ' '.join(street_parts_without_numbers)
@@ -606,7 +606,26 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
     results["next_collection_date"] = next_date
     results["has_scheduled_collection"] = next_date is not None
     
-    # 3. Generate appropriate message based on results
+    # 3. Check for available waste types at this street (for better messaging)
+    available_waste_types = set()
+    for item in all_dates:
+        streets = item.get('strasse', [])
+        if not isinstance(streets, list):
+            streets = [streets]
+            
+        street_found = False
+        for s in streets:
+            if not isinstance(s, str):
+                continue
+                
+            if s.lower().strip() == street_name.lower().strip():
+                street_found = True
+                break
+                
+        if street_found and 'sammlung' in item:
+            available_waste_types.add(item['sammlung'])
+    
+    # 4. Generate appropriate message based on results
     # Get the translated waste type for user-friendly messages
     waste_type_display = translate_waste_type(waste_type)
     
@@ -621,10 +640,19 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
             f"2. **Drop-off locations**: There are {len(collection_points)} disposal points nearby (see map below)"
         )
     elif results["has_disposal_locations"]:
-        results["message"] = (
-            f"{waste_type_display} can be dropped off at {len(collection_points)} nearby locations. "
-            f"There is no scheduled home collection service for this waste type in your area."
-        )
+        # Create a more informative message about why there's no collection service
+        if available_waste_types:
+            available_types_str = ", ".join([translate_waste_type(wt) for wt in available_waste_types])
+            results["message"] = (
+                f"{waste_type_display} can be dropped off at {len(collection_points)} nearby locations. "
+                f"There is no scheduled home collection service for {waste_type_display} on {street_name}. "
+                f"Available collection services for your street include: {available_types_str}."
+            )
+        else:
+            results["message"] = (
+                f"{waste_type_display} can be dropped off at {len(collection_points)} nearby locations. "
+                f"There is no scheduled home collection service for this waste type in your area."
+            )
     elif results["has_scheduled_collection"]:
         collection_date_str = next_date['date'].strftime('%A, %B %d, %Y')
         collection_time_str = next_date.get('time', '')
@@ -636,7 +664,15 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
     else:
         # Try to check if this waste type is typically collected
         typical_collection_types = ["Papier", "Karton", "Kehricht", "Grüngut"]
-        if waste_type in typical_collection_types:
+        
+        if available_waste_types:
+            available_types_str = ", ".join([translate_waste_type(wt) for wt in available_waste_types])
+            results["message"] = (
+                f"No disposal options found for {waste_type_display} at {street_name}. "
+                f"Available collection services for your street include: {available_types_str}. "
+                f"You may need to visit a recycling center for {waste_type_display}."
+            )
+        elif waste_type in typical_collection_types:
             results["message"] = (
                 f"No upcoming collection dates found for {waste_type_display} at your address. "
                 f"This waste type is typically collected from homes. Please check the official schedule "
