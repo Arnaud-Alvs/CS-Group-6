@@ -505,26 +505,46 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
     results["has_scheduled_collection"] = next_date is not None
     
     # 3. Generate appropriate message based on results
+    # Get the translated waste type for user-friendly messages
+    waste_type_display = translate_waste_type(waste_type)
+    
     if results["has_disposal_locations"] and results["has_scheduled_collection"]:
+        # Both options are available - this is the key scenario you highlighted
+        collection_date_str = next_date['date'].strftime('%A, %B %d, %Y')
+        collection_time_str = next_date.get('time', '')
+        
         results["message"] = (
-            f"{waste_type} can be dropped off at {len(collection_points)} nearby locations "
-            f"AND is collected on {next_date['date'].strftime('%A, %B %d, %Y')} {next_date.get('time', '')}"
+            f"You have two options for {waste_type_display}:\n\n"
+            f"1. **Collection from home**: The next collection is on {collection_date_str} {collection_time_str}\n\n"
+            f"2. **Drop-off locations**: There are {len(collection_points)} disposal points nearby (see map below)"
         )
     elif results["has_disposal_locations"]:
         results["message"] = (
-            f"{waste_type} can be dropped off at {len(collection_points)} nearby locations. "
-            f"There is no scheduled collection service for this waste type."
+            f"{waste_type_display} can be dropped off at {len(collection_points)} nearby locations. "
+            f"There is no scheduled home collection service for this waste type in your area."
         )
     elif results["has_scheduled_collection"]:
+        collection_date_str = next_date['date'].strftime('%A, %B %d, %Y')
+        collection_time_str = next_date.get('time', '')
+        
         results["message"] = (
-            f"{waste_type} will be collected on {next_date['date'].strftime('%A, %B %d, %Y')} {next_date.get('time', '')}. "
-            f"There are no drop-off points available for this waste type."
+            f"{waste_type_display} will be collected on {collection_date_str} {collection_time_str}. "
+            f"This waste type is typically collected directly from homes in your area."
         )
     else:
-        results["message"] = (
-            f"No disposal options found for {waste_type_original}. "
-            f"Please check the waste type or contact the local waste management office."
-        )
+        # Try to check if this waste type is typically collected
+        typical_collection_types = ["Papier", "Karton", "Kehricht", "Grüngut"]
+        if waste_type in typical_collection_types:
+            results["message"] = (
+                f"No upcoming collection dates found for {waste_type_display} at your address. "
+                f"This waste type is typically collected from homes. Please check the official schedule "
+                f"or contact the local waste management office for more information."
+            )
+        else:
+            results["message"] = (
+                f"No disposal options found for {waste_type_display}. "
+                f"Please check the waste type or contact the local waste management office."
+            )
     
     return results
 
