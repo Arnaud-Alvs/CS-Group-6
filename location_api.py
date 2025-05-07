@@ -30,21 +30,19 @@ COLLECTION_DATES_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/a
 def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dict[str, float]]:
     """
     Get latitude and longitude from address using OpenStreetMap Nominatim API.
-    Relies on explicit city and country parameters for St. Gallen, Switzerland.
-    Aggressively cleans the address string to leave only street name and number for 'q'.
     """
     try:
+        import time
+        # Add a small delay to avoid hitting rate limits
+        time.sleep(1)  
+        
         base_url = "https://nominatim.openstreetmap.org/search"
 
         # --- Address Cleaning ---
-        # Start with the original address
+        # Clean the address as you were doing before
         cleaned_address = address
-
-        # Remove common Swiss postal code patterns (4 digits)
         cleaned_address = re.sub(r'\b\d{4}\b', '', cleaned_address, flags=re.IGNORECASE).strip()
-
-        # Remove variations of "St. Gallen" and "Switzerland"/"Schweiz"
-        # Use word boundaries and handle potential surrounding punctuation/whitespace
+        
         patterns_to_remove_city_country = [
             r'\bSt\.\s*Gallen\b',
             r'\bStGallen\b',
@@ -56,38 +54,33 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
         for pattern in patterns_to_remove_city_country:
              cleaned_address = re.sub(pattern, '', cleaned_address, flags=re.IGNORECASE).strip()
 
-        # Remove any leading/trailing commas or whitespace that might remain
         cleaned_address = re.sub(r'^\s*[,;:\s]+|[,\s]+$', '', cleaned_address).strip()
-
-        # Replace multiple spaces with a single space
         cleaned_address = re.sub(r'\s+', ' ', cleaned_address).strip()
 
-
-        # Use only the aggressively cleaned street name and number in the 'q' parameter
         address_for_query = cleaned_address
 
-        # If the cleaned address is empty, we can't search
         if not address_for_query:
              st.warning("Please enter a valid street name and number.")
              logger.warning(f"Empty address string after cleaning: {address}")
              return None
 
-
+        # Create a more specific query for Switzerland/St. Gallen
+        structured_query = f"{address_for_query}, St. Gallen, Switzerland"
+        
         params = {
-            "q": address_for_query, # Use ONLY the cleaned street and number
+            "q": structured_query,  # Use a structured query format
             "format": "json",
             "limit": 1,
             "addressdetails": 1,
-            "countrycodes": "ch",  # Explicitly limit to Switzerland
-            "city": "St. Gallen"   # Explicitly specify city for better results
         }
 
-        # Using a descriptive User-Agent is good practice
+        # Nominatim REQUIRES a unique user agent identifying your application
         headers = {
-            "User-Agent": "WasteWise App - University Project"
+            "User-Agent": "WasteWise-StGallen-App/1.0 (university.project@example.com)",
+            "Accept-Language": "de,en"  # Add German as preferred language
         }
 
-        logger.info(f"Attempting to get coordinates for original address: '{address}', cleaned query: '{address_for_query}', with params: {params}")
+        logger.info(f"Attempting to get coordinates for original address: '{address}', query: '{structured_query}'")
         response = requests.get(base_url, params=params, headers=headers, timeout=30)
 
         # Raise an HTTPError for bad responses (4xx or 5xx)
@@ -101,12 +94,12 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
             return {"lat": float(data[0]["lat"]), "lon": float(data[0]["lon"])}
         else:
             st.warning(f"Could not find coordinates for address: {address}. Please try a more specific address.")
-            logger.warning(f"Nominatim found no results for address: {address}, query: {address_for_query}")
+            logger.warning(f"Nominatim found no results for address: {address}, query: {structured_query}")
             return None
 
     except requests.exceptions.RequestException as e:
         st.error(f"Error fetching coordinates for {address}: {str(e)}. Please check the address format.")
-        logger.error(f"Request error for address {address}, query {address_for_query}: {str(e)}")
+        logger.error(f"Request error for address {address}, query {structured_query if 'structured_query' in locals() else 'unknown'}: {str(e)}")
         return None
     except ValueError as e:
         st.error(f"Error parsing coordinate data for {address}: {str(e)}")
