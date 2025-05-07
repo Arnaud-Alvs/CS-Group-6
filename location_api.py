@@ -37,31 +37,30 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
         base_url = "https://nominatim.openstreetmap.org/search"
 
         # --- Address Cleaning ---
-        # Remove common Swiss postal code patterns (4 digits)
-        cleaned_address = re.sub(r'\b\d{4}\b', '', address, flags=re.IGNORECASE).strip()
+        # Start with the original address
+        cleaned_address = address
 
-        # Remove variations of "St. Gallen" and "Switzerland"/"Schweiz" specifically
-        # targeting them at the end of the string or preceded by a comma.
+        # Remove common Swiss postal code patterns (4 digits)
+        cleaned_address = re.sub(r'\b\d{4}\b', '', cleaned_address, flags=re.IGNORECASE).strip()
+
+        # Remove variations of "St. Gallen" and "Switzerland"/"Schweiz"
+        # Use word boundaries and handle potential surrounding punctuation/whitespace
         patterns_to_remove_city_country = [
-            r',\s*St\.\s*Gallen\b',
-            r',\s*StGallen\b',
-            r',\s*St\. Gallen\b',
-            r'\bSt\.\s*Gallen\b', # Remove if not preceded by comma (might be at start or middle)
+            r'\bSt\.\s*Gallen\b',
             r'\bStGallen\b',
             r'\bSt\. Gallen\b',
-            r',\s*Switzerland\b',
-            r',\s*Schweiz\b',
-            r'\bSwitzerland\b', # Remove if not preceded by comma
+            r'\bSwitzerland\b',
             r'\bSchweiz\b',
         ]
 
         for pattern in patterns_to_remove_city_country:
              cleaned_address = re.sub(pattern, '', cleaned_address, flags=re.IGNORECASE).strip()
 
+        # Remove any leading/trailing commas or whitespace that might remain
+        cleaned_address = re.sub(r'^\s*[,;:\s]+|[,\s]+$', '', cleaned_address).strip()
 
-        # Remove any extra whitespace or commas that might remain
+        # Replace multiple spaces with a single space
         cleaned_address = re.sub(r'\s+', ' ', cleaned_address).strip()
-        cleaned_address = cleaned_address.strip(', ')
 
 
         # Use only the aggressively cleaned street name and number in the 'q' parameter
