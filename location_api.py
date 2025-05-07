@@ -6,6 +6,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 from math import radians, sin, cos, sqrt, atan2
 import re # Import regex module
+import folium
+from streamlit_folium import folium_static
 
 # Configure logging for this module
 import logging
@@ -135,7 +137,75 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
 
     distance = R * c
+    
+    # For debugging the distance issue
+    logger.info(f"Calculated distance: {distance} km between ({lat1}, {lon1}) and ({lat2}, {lon2})")
+    
     return distance
+
+# Add a new function to create an interactive map
+def create_interactive_map(user_coords: Dict[str, float], collection_points: List[Dict[str, Any]]) -> folium.Map:
+    """
+    Creates an interactive Folium map with the user's location and nearby collection points.
+    Each point shows information on hover.
+    """
+    # Create a map centered on the user's location
+    st_gallen_center = [47.4245, 9.3767]  # Center of St. Gallen
+    
+    # If we have user coordinates, center on them, otherwise use St. Gallen center
+    if user_coords:
+        center = [user_coords["lat"], user_coords["lon"]]
+    else:
+        center = st_gallen_center
+    
+    # Create the base map
+    m = folium.Map(
+        location=center,
+        zoom_start=14,
+        tiles="CartoDB positron",  # A cleaner, more modern map style
+        max_bounds=True,  # Restrict panning to the bounds
+    )
+    
+    # Set bounds to restrict to St. Gallen area
+    # These are approximate coordinates that define the St. Gallen city area
+    sw = [47.3745, 9.3167]  # Southwest corner
+    ne = [47.4745, 9.4367]  # Northeast corner
+    m.fit_bounds([sw, ne])
+    
+    # Add user marker
+    if user_coords:
+        folium.Marker(
+            location=[user_coords["lat"], user_coords["lon"]],
+            popup="Your Location",
+            tooltip="Your Location",
+            icon=folium.Icon(color="blue", icon="home", prefix="fa")
+        ).add_to(m)
+    
+    # Add collection points markers
+    for point in collection_points:
+        # Create a nice tooltip with waste types
+        waste_types_str = ", ".join([translate_waste_type(wt) for wt in point["waste_types"]])
+        tooltip = f"{point['name']}<br>Accepts: {waste_types_str}"
+        
+        # Create a popup with more detailed information
+        popup_html = f"""
+        <div style="width: 200px">
+            <h4>{point['name']}</h4>
+            <p><b>Distance:</b> {point['distance']:.2f} km</p>
+            <p><b>Accepts:</b> {waste_types_str}</p>
+            {f"<p><b>Opening Hours:</b> {point['opening_hours']}</p>" if point['opening_hours'] and point['opening_hours'] != "N/A" else ""}
+        </div>
+        """
+        
+        # Create the marker with custom icon and add to map
+        folium.Marker(
+            location=[point["lat"], point["lon"]],
+            popup=folium.Popup(popup_html, max_width=300),
+            tooltip=tooltip,
+            icon=folium.Icon(color="green", icon="recycle", prefix="fa")
+        ).add_to(m)
+    
+    return m
 
 # Function to fetch collection points data from the API
 def fetch_collection_points() -> List[Dict[str, Any]]:

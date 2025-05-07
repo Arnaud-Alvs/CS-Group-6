@@ -8,6 +8,8 @@ import pickle
 from datetime import datetime
 import os
 import sys
+from streamlit_folium import folium_static
+import folium
 
 # Configure error handling and logging
 import logging
@@ -19,16 +21,17 @@ logger = logging.getLogger(__name__)
 try:
     from location_api import (
         get_coordinates,
-        handle_waste_disposal,
         find_collection_points,
-        fetch_collection_dates, # Corrected import: fetch_collection_dates
-        get_next_collection_date, # Corrected import: get_next_collection_date
+        fetch_collection_dates,
+        get_next_collection_date,
         format_collection_points,
         get_available_waste_types,
         translate_waste_type,
-        fetch_collection_points, # Import fetch_collection_points
+        fetch_collection_points,
         COLLECTION_POINTS_ENDPOINT,
-        COLLECTION_DATES_ENDPOINT  
+        COLLECTION_DATES_ENDPOINT,
+        handle_waste_disposal,
+        create_interactive_map  # Add the new function here
     )
     logger.info(f"Successfully imported location_api functions")
     logger.info(f"Collection Points API: {COLLECTION_POINTS_ENDPOINT}")
