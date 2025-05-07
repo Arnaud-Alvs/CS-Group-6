@@ -246,22 +246,41 @@ def fetch_collection_points() -> List[Dict[str, Any]]:
 def fetch_collection_dates() -> List[Dict[str, Any]]:
     """
     Fetches waste collection dates data from the St. Gallen Open Data API.
+    Ensures all records are retrieved.
     """
     try:
-        # Define the base endpoint without any parameters
+        # Get as many records as possible
+        params = {"limit": 1000}  # Request a large number of records
+        
         base_endpoint = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records"
         
-        logger.info(f"Fetching collection dates from base endpoint: {base_endpoint}")
+        logger.info(f"Fetching collection dates from: {base_endpoint} with params: {params}")
         
-        # Make a simple request without additional parameters
-        response = requests.get(base_endpoint, timeout=30)
+        response = requests.get(base_endpoint, params=params, timeout=60)  # Longer timeout for more data
         response.raise_for_status()
         
         data = response.json()
         results = data.get('results', [])
         
+        total_count = data.get('total_count', 0)
+        logger.info(f"API reports {total_count} total records available")
+        
         if results:
             logger.info(f"Successfully fetched {len(results)} collection dates.")
+            
+            # Log some summary info to verify we have diverse data
+            waste_types = set(item.get('sammlung', '') for item in results)
+            logger.info(f"Found {len(waste_types)} different waste types: {waste_types}")
+            
+            # Sample some streets from the first few records
+            street_samples = []
+            for item in results[:5]:
+                streets = item.get('strasse', [])
+                if isinstance(streets, list) and len(streets) > 0:
+                    street_samples.extend(streets[:3])  # Add first 3 streets from each record
+            
+            logger.info(f"Sample streets from data: {street_samples}")
+            
             return results
         else:
             logger.warning("API returned empty results despite successful connection.")
@@ -322,15 +341,33 @@ def find_collection_points(user_lat: float, user_lon: float, waste_type: str, al
 def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """
     Finds the next collection date for a specific waste type and street.
-    Optimized for the exact API data structure.
+    Enhanced with additional diagnostics.
     """
     today = datetime.now().date()
     relevant_dates = []
     
-    # Clean the input street name for exact matching
+    # Clean the input street name for matching
     cleaned_street_name = street_name.lower().strip()
     
     logger.info(f"Searching for collection dates for '{waste_type}' on street '{street_name}'")
+    logger.info(f"Total collection date records available: {len(all_dates)}")
+    
+    # Count records for this waste type
+    waste_type_records = [item for item in all_dates if item.get('sammlung', '').lower() == waste_type.lower()]
+    logger.info(f"Found {len(waste_type_records)} records for waste type '{waste_type}'")
+    
+    # Log all street names in the dataset (for diagnostic purposes)
+    all_streets = set()
+    for item in all_dates:
+        streets = item.get('strasse', [])
+        if isinstance(streets, list):
+            all_streets.update(streets)
+    
+    logger.info(f"Found {len(all_streets)} unique streets in the dataset")
+    
+    # Check if our street is in the dataset at all
+    street_exists = any(cleaned_street_name in s.lower() or s.lower() in cleaned_street_name for s in all_streets if isinstance(s, str))
+    logger.info(f"Street '{cleaned_street_name}' exists in dataset: {street_exists}")
     
     for item in all_dates:
         # Check if this item is for the waste type we're looking for
@@ -344,51 +381,38 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
         if not isinstance(streets, list):
             streets = [streets]
         
-        # Check for street match
-        matched = False
-        
-        # Super simple matching - just check if our street is in the list
-        # Convert all streets to lowercase for case-insensitive matching
-        streets_lower = [s.lower().strip() for s in streets if isinstance(s, str)]
-        
-        # First try exact match
-        if cleaned_street_name in streets_lower:
-            matched = True
-            logger.info(f"Exact match found for '{cleaned_street_name}'")
-        
-        # If no exact match, try more flexible matching
-        if not matched:
-            for street in streets:
-                if not isinstance(street, str):
-                    continue
-                    
-                street_lower = street.lower().strip()
-                
-                # Check if either is a substring of the other
-                if cleaned_street_name in street_lower or street_lower in cleaned_street_name:
-                    matched = True
-                    logger.info(f"Partial match found: '{cleaned_street_name}' matches '{street_lower}'")
-                    break
-        
-        if matched:
-            try:
-                # Parse the date
-                date_str = item.get('datum')
-                if date_str:
-                    date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
-                    
-                    # Only include future dates
-                    if date_obj >= today:
-                        relevant_dates.append({
-                            'date': date_obj,
-                            'time': item.get('zeit', 'N/A'),
-                            'description': item.get('titel', 'Collection'),
-                            'area': item.get('gebietsbezeichnung', 'N/A')
-                        })
-                        logger.info(f"Added relevant date: {date_obj} for {waste_type}")
-            except ValueError:
-                logger.warning(f"Invalid date format in collection data: {item.get('datum')}")
+        # Check each street for a match
+        for street in streets:
+            if not isinstance(street, str):
                 continue
+                
+            street_lower = street.lower().strip()
+            
+            # Check if either is a substring of the other
+            if cleaned_street_name in street_lower or street_lower in cleaned_street_name:
+                logger.info(f"Match found: '{cleaned_street_name}' matches '{street_lower}'")
+                
+                try:
+                    # Parse the date
+                    date_str = item.get('datum')
+                    if date_str:
+                        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+                        
+                        # Only include future dates
+                        if date_obj >= today:
+                            relevant_dates.append({
+                                'date': date_obj,
+                                'time': item.get('zeit', 'N/A'),
+                                'description': item.get('titel', 'Collection'),
+                                'area': item.get('gebietsbezeichnung', 'N/A')
+                            })
+                            logger.info(f"Added relevant date: {date_obj} for {waste_type}")
+                except ValueError:
+                    logger.warning(f"Invalid date format in collection data: {item.get('datum')}")
+                    continue
+                
+                # Once we find a match for this record, move on to the next one
+                break
     
     # Sort relevant dates to find the soonest
     relevant_dates.sort(key=lambda x: x['date'])
@@ -398,6 +422,16 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
         return relevant_dates[0]
     else:
         logger.warning(f"No future collection dates found for waste type '{waste_type}' on street '{street_name}'")
+        
+        # If no matches, suggest some similar streets for debugging
+        similar_streets = []
+        for s in all_streets:
+            if isinstance(s, str) and (cleaned_street_name[:4] in s.lower() or s.lower()[:4] in cleaned_street_name):
+                similar_streets.append(s)
+        
+        if similar_streets:
+            logger.info(f"Similar streets that might match: {similar_streets[:10]}")
+        
         return None
 # Function to format results for display in Streamlit
 def format_collection_points(collection_points: List[Dict[str, Any]]) -> Tuple[pd.DataFrame, List[Dict[str, Any]]]:
