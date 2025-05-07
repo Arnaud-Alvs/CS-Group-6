@@ -334,48 +334,48 @@ with tab1:
 
     # Button to trigger the search
     if st.button("Find Information"):
-    if not user_address:
-        st.warning("Please enter your address.")
-    elif not selected_waste_type_english:
-        st.warning("Please select a waste type.")
-    else:
+        if not user_address:
+            st.warning("Please enter your address.")
+        elif not selected_waste_type_english:
+            st.warning("Please select a waste type.")
+        else:
         # Translate selected waste type back to German for API calls
-        selected_waste_type_german = waste_type_mapping.get(selected_waste_type_english, selected_waste_type_english)
+            selected_waste_type_german = waste_type_mapping.get(selected_waste_type_english, selected_waste_type_english)
 
-        st.info(f"Searching for collection points and dates for '{selected_waste_type_english}' near '{user_address}'...")
+            st.info(f"Searching for collection points and dates for '{selected_waste_type_english}' near '{user_address}'...")
 
         # Use the new combined function
-        waste_info = handle_waste_disposal(user_address, selected_waste_type_german)
+            waste_info = handle_waste_disposal(user_address, selected_waste_type_german)
         
         # Display the message
-        st.markdown(f"### Results")
-        st.markdown(waste_info["message"])
+            st.markdown(f"### Results")
+            st.markdown(waste_info["message"])
         
         # Display collection points if available
-        if waste_info["has_disposal_locations"]:
-            st.subheader(f"Nearest Collection Points for {selected_waste_type_english}")
+            if waste_info["has_disposal_locations"]:
+                st.subheader(f"Nearest Collection Points for {selected_waste_type_english}")
             
             # Format data for map and display
-            map_data, display_points = format_collection_points(waste_info["collection_points"])
+                map_data, display_points = format_collection_points(waste_info["collection_points"])
             
             # Get user coordinates to add to map
-            user_coords = get_coordinates(user_address)
-            if user_coords:
+                user_coords = get_coordinates(user_address)
+                if user_coords:
                 # Add user location to the map data for context
-                user_location_df = pd.DataFrame({'lat': [user_coords["lat"]], 'lon': [user_coords["lon"]], 'name': ['Your Location']})
-                map_data_with_user = pd.concat([user_location_df, map_data], ignore_index=True)
+                    user_location_df = pd.DataFrame({'lat': [user_coords["lat"]], 'lon': [user_coords["lon"]], 'name': ['Your Location']})
+                    map_data_with_user = pd.concat([user_location_df, map_data], ignore_index=True)
                 
                 # Display map
-                st.map(map_data_with_user, zoom=12)
-            else:
-                st.map(map_data, zoom=12)
+                    st.map(map_data_with_user, zoom=12)
+                else:
+                    st.map(map_data, zoom=12)
             
             # Display detailed list of nearest points
-            st.write("Details of nearest points (sorted by distance):")
-            for i, point in enumerate(display_points):
+                st.write("Details of nearest points (sorted by distance):")
+                for i, point in enumerate(display_points):
                 # Display up to a certain number of points, e.g., 5
-                if i >= 5:
-                    break
+                    if i >= 5:
+                        break
                 st.markdown(f"**{point['name']}**")
                 st.markdown(f"Distance: {point['distance']:.2f} km")
                 st.markdown(f"Accepted Waste Types: {', '.join([translate_waste_type(wt) for wt in point['waste_types']])}")
