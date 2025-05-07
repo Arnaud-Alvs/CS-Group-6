@@ -31,19 +31,21 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
     """
     Get latitude and longitude from address using OpenStreetMap Nominatim API.
     Relies on explicit city and country parameters for St. Gallen, Switzerland.
-    Attempts to remove postal code from the address string for cleaner query in 'q'.
+    Aggressively cleans the address string to leave only street name and number for 'q'.
     """
     try:
         base_url = "https://nominatim.openstreetmap.org/search"
 
         # --- Address Cleaning ---
-        # Attempt to remove common Swiss postal code patterns (4 digits, optionally followed by city name)
-        # This aims to clean the address string slightly but keep street, number, city, etc.
+        # Remove common Swiss postal code patterns (4 digits, optionally followed by city name),
+        # variations of St. Gallen, and Switzerland from the address string.
+        # This aims to isolate just the street name and number.
         cleaned_address = re.sub(r'\b\d{4}\s*(?:St\.\s*Gallen)?\b', '', address, flags=re.IGNORECASE).strip()
+        cleaned_address = re.sub(r'\b(St\.\s*Gallen|StGallen|St. Gallen|Switzerland|Schweiz)\b', '', cleaned_address, flags=re.IGNORECASE).strip()
         # Remove trailing commas that might result from removal
         cleaned_address = cleaned_address.rstrip(',')
 
-        # Use the slightly cleaned address string in the 'q' parameter
+        # Use only the aggressively cleaned street name and number in the 'q' parameter
         address_for_query = cleaned_address
 
         # If the cleaned address is empty, we can't search
@@ -54,7 +56,7 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
 
 
         params = {
-            "q": address_for_query, # Use the slightly cleaned full address
+            "q": address_for_query, # Use ONLY the cleaned street and number
             "format": "json",
             "limit": 1,
             "addressdetails": 1,
@@ -67,7 +69,7 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
             "User-Agent": "WasteWise App - University Project"
         }
 
-        logger.info(f"Attempting to get coordinates for query: '{address_for_query}' with params: {params}")
+        logger.info(f"Attempting to get coordinates for original address: '{address}', cleaned query: '{address_for_query}', with params: {params}")
         response = requests.get(base_url, params=params, headers=headers, timeout=30)
 
         # Raise an HTTPError for bad responses (4xx or 5xx)
