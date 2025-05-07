@@ -26,7 +26,7 @@ BASE_API_URL = "https://daten.stadt.sg.ch"
 
 # API Endpoints
 COLLECTION_POINTS_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/sammelstellen/records"
-COLLECTION_DATES_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records?select=zeit%2C%20strasse%2C%20sammlung%2C%20datum%2C%20titel&limit=1000&refine=datum%3A%222025%22"
+COLLECTION_DATES_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records?select=zeit%2C%20strasse%2C%20sammlung%2C%20datum%2C%20titel&limit=20&refine=datum%3A%222025%22"
 
 # Function to get geographic coordinates (latitude, longitude) from an address
 def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dict[str, float]]:
