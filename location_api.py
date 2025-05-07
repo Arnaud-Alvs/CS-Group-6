@@ -243,62 +243,60 @@ def fetch_collection_points() -> List[Dict[str, Any]]:
 
 
 # Function to fetch collection dates data from the API
-@st.cache_data(ttl=3600)  # Cache for 1 hour
 def fetch_collection_dates() -> List[Dict[str, Any]]:
     """
     Fetches waste collection dates data from the St. Gallen Open Data API.
-    Uses a direct URL with date filtering for 2025, with fallback options.
+    Pre-filters to include only 2025 dates for better performance.
     """
     try:
-        # Use the exact URL structure that you found working
-        url = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records?limit=20&refine=datum%3A%222025%22"
+        all_results = []
+        base_url = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records"
         
-        # Primary attempt - with your specific format
-        params = {
-            "limit": 500,
-            "offset": 0,
-            "refine": "datum:\"2025\""
-        }
+        # Start with page 0
+        offset = 0
+        limit = 100  # Number of records per page
         
-        logger.info(f"Fetching collection dates with primary parameters")
+        logger.info(f"Starting to fetch collection dates from {base_url}")
         
-        try:
-            response = requests.get(url, params=params, timeout=30)
+        while True:
+            # Configure parameters for this page, including the 2025 filter
+            params = {
+                "limit": limit,
+                "offset": offset,
+                "refine": "datum:\"2025\""  # Filter for 2025 dates only
+            }
+            
+            logger.info(f"Fetching page with offset {offset}, limit {limit}, filtered to 2025")
+            
+            # Make the request
+            response = requests.get(base_url, params=params, timeout=30)
             response.raise_for_status()
             
             data = response.json()
-            results = data.get('results', [])
+            page_results = data.get('results', [])
+            total_count = data.get('total_count', 0)
             
-            if results:
-                logger.info(f"Successfully fetched {len(results)} collection dates for 2025")
-                return results
+            if not page_results:
+                logger.info(f"No more results at offset {offset}")
+                break
                 
-        except Exception as e:
-            logger.warning(f"Primary attempt failed: {str(e)}")
-        
-        # Fallback attempt - using a different parameter format
-        fallback_params = {
-            "limit": 500,
-            "q": "2025"  # Simple text search for 2025
-        }
-        
-        logger.info(f"Trying fallback parameters")
-        
-        response = requests.get(url, params=fallback_params, timeout=30)
-        response.raise_for_status()
-        
-        data = response.json()
-        results = data.get('results', [])
-        
-        if results:
-            # Make sure we only have 2025 dates
-            filtered_results = [item for item in results 
-                               if 'datum' in item and item['datum'].startswith('2025-')]
+            # Add this page's results to our collection
+            all_results.extend(page_results)
+            logger.info(f"Retrieved {len(page_results)} records, total so far: {len(all_results)}")
             
-            logger.info(f"Successfully fetched {len(filtered_results)} collection dates for 2025 using fallback")
-            return filtered_results
+            # If we've got all the results, or if there are no more results, stop
+            if len(all_results) >= total_count or len(page_results) < limit:
+                logger.info(f"Finished fetching data, got {len(all_results)} of {total_count} total records")
+                break
+                
+            # Otherwise, move to the next page
+            offset += limit
+        
+        if all_results:
+            logger.info(f"Successfully fetched {len(all_results)} collection dates for 2025.")
+            return all_results
         else:
-            logger.warning("API returned empty results for both attempts")
+            logger.warning("API returned empty results despite successful connection.")
             return []
             
     except Exception as e:
