@@ -246,25 +246,40 @@ def fetch_collection_points() -> List[Dict[str, Any]]:
 def fetch_collection_dates() -> List[Dict[str, Any]]:
     """
     Fetches waste collection dates data from the St. Gallen Open Data API.
-    Filters for the current year (or a specified year if needed).
+    The data is already filtered for the year 2025.
     """
     try:
-        # Filter for the current year. Adjust if you need data for other years.
-        current_year = datetime.now().year
-        # Note: The provided URL snippet uses 2025, so we'll keep that for now.
-        # If you need the current year dynamically, replace "2025" with {current_year}
-        params = {"limit": 1000, "refine": "datum:\"2025\""} # Increased limit and refined by year
-        logger.info(f"Fetching collection dates from: {COLLECTION_DATES_ENDPOINT} with params: {params}")
-        response = requests.get(COLLECTION_DATES_ENDPOINT, params=params, timeout=30)
-        response.raise_for_status() # Raise an HTTPError for bad responses
-        data = response.json()
-        logger.info(f"Successfully fetched {len(data.get('results', []))} collection dates.")
-        # The actual records are in the 'results' key for v2.1
-        return data.get('results', [])
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching collection dates data: {str(e)}")
-        logger.error(f"Error fetching collection dates: {str(e)}")
+        # Try different parameter formats that might work with the API
+        params_options = [
+            {"limit": 1000},  # Simple limit without date filter
+            {"limit": 500},   # Try with smaller limit
+            {"limit": 100},   # Even smaller limit
+            {}                # No parameters at all
+        ]
+        
+        for params in params_options:
+            try:
+                logger.info(f"Fetching collection dates from: {COLLECTION_DATES_ENDPOINT} with params: {params}")
+                response = requests.get(COLLECTION_DATES_ENDPOINT, params=params, timeout=30)
+                response.raise_for_status()  # This will raise an exception for HTTP errors
+                
+                data = response.json()
+                results = data.get('results', [])
+                
+                if results:
+                    logger.info(f"Successfully fetched {len(results)} collection dates.")
+                    return results
+                else:
+                    logger.warning(f"API returned empty results with params: {params}")
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"Failed attempt with params {params}: {str(e)}")
+                continue
+        
+        # If we reach here, all API attempts failed
+        logger.error("All API attempts failed to retrieve collection dates data.")
+        st.error("Unable to connect to the collection dates API. Please try again later.")
         return []
+        
     except Exception as e:
         st.error(f"An unexpected error occurred while fetching collection dates: {str(e)}")
         logger.error(f"Unexpected error fetching collection dates: {str(e)}")
