@@ -343,71 +343,65 @@ with tab1:
         elif not selected_waste_type_english:
             st.warning("Please select a waste type.")
         else:
-        # Translate selected waste type back to German for API calls
+            # Translate selected waste type back to German for API calls
             selected_waste_type_german = waste_type_mapping.get(selected_waste_type_english, selected_waste_type_english)
 
             st.info(f"Searching for collection points and dates for '{selected_waste_type_english}' near '{user_address}'...")
 
-        # Use the new combined function
+            # Use the combined function for waste disposal information
             waste_info = handle_waste_disposal(user_address, selected_waste_type_german)
-        
-        # Display the message
+            
+            # Display the message
             st.markdown(f"### Results")
             st.markdown(waste_info["message"])
-        
-        # Display collection points if available
+            
+            # Display collection points if available
             if waste_info["has_disposal_locations"]:
                 st.subheader(f"Nearest Collection Points for {selected_waste_type_english}")
-            
-            # Format data for map and display
-                map_data, display_points = format_collection_points(waste_info["collection_points"])
-            
-            # Get user coordinates to add to map
-                user_coords = get_coordinates(user_address)
-                if user_coords:
-                # Add user location to the map data for context
-                    user_location_df = pd.DataFrame({'lat': [user_coords["lat"]], 'lon': [user_coords["lon"]], 'name': ['Your Location']})
-                    map_data_with_user = pd.concat([user_location_df, map_data], ignore_index=True)
                 
-                # Display map
-                    st.map(map_data_with_user, zoom=12)
-                else:
-                    st.map(map_data, zoom=12)
-            
-            # Display detailed list of nearest points
+                # Get user coordinates for the map
+                user_coords = get_coordinates(user_address)
+                
+                # Create and display the interactive map
+                if user_coords:
+                    st.write("Interactive map: hover over markers for quick info, click for details.")
+                    interactive_map = create_interactive_map(user_coords, waste_info["collection_points"])
+                    folium_static(interactive_map)
+                
+                # Display detailed list of nearest points
                 st.write("Details of nearest points (sorted by distance):")
-                for i, point in enumerate(display_points):
-                # Display up to a certain number of points, e.g., 5
+                for i, point in enumerate(waste_info["collection_points"]):
+                    # Display up to a certain number of points, e.g., 5
                     if i >= 5:
                         break
-                st.markdown(f"**{point['name']}**")
-                st.markdown(f"Distance: {point['distance']:.2f} km")
-                st.markdown(f"Accepted Waste Types: {', '.join([translate_waste_type(wt) for wt in point['waste_types']])}")
-                if point['opening_hours'] and point['opening_hours'] != "N/A":
-                    st.markdown(f"Opening Hours: {point['opening_hours']}")
-                st.markdown("---")
-        
-        # Display collection date if available
-        if waste_info["has_scheduled_collection"]:
-            st.subheader(f"Next Collection Date for {selected_waste_type_english}")
-            next_collection = waste_info["next_collection_date"]
+                    st.markdown(f"**{i+1}. {point['name']}**")
+                    st.markdown(f"Distance: {point['distance']:.2f} km")
+                    st.markdown(f"Accepted Waste Types: {', '.join([translate_waste_type(wt) for wt in point['waste_types']])}")
+                    if point['opening_hours'] and point['opening_hours'] != "N/A":
+                        st.markdown(f"Opening Hours: {point['opening_hours']}")
+                    st.markdown("---")
             
-            st.success(f"The next collection for {selected_waste_type_english} is on:")
-            st.markdown(f"- **Date:** {next_collection['date'].strftime('%Y-%m-%d')}")
-            if next_collection['time'] and next_collection['time'] != "N/A":
-                st.markdown(f"- **Time:** {next_collection['time']}")
-            if next_collection['description'] and next_collection['description'] != "Collection":
-                st.markdown(f"- **Description:** {next_collection['description']}")
-            if next_collection['area'] and next_collection['area'] != "N/A":
-                st.markdown(f"- **Area:** {next_collection['area']}")
+            # Display collection date if available
+            if waste_info["has_scheduled_collection"]:
+                st.subheader(f"Next Collection Date for {selected_waste_type_english}")
+                next_collection = waste_info["next_collection_date"]
+                
+                st.success(f"The next collection for {selected_waste_type_english} is on:")
+                st.markdown(f"- **Date:** {next_collection['date'].strftime('%A, %B %d, %Y')}")
+                if next_collection['time'] and next_collection['time'] != "N/A":
+                    st.markdown(f"- **Time:** {next_collection['time']}")
+                if next_collection['description'] and next_collection['description'] != "Collection":
+                    st.markdown(f"- **Description:** {next_collection['description']}")
+                if next_collection['area'] and next_collection['area'] != "N/A":
+                    st.markdown(f"- **Area:** {next_collection['area']}")
 
     # Separator
     st.markdown("---")
 
-    # --- General Information Section (from original app.py snippet) ---
+    # --- General Information Section ---
     st.header("General Waste Information")
 
-    # Tip of the day (keeping the existing logic)
+    # Tip of the day
     st.subheader("Tip of the Day")
     tips_of_the_day = [
         "Recycling one aluminum can saves enough energy to run a TV for three hours.",
@@ -429,16 +423,31 @@ with tab1:
     # St. Gallen collection points map (General Map)
     st.subheader("General Collection Points Map (St. Gallen)")
 
-    # Display a small map centered on St. Gallen
-    st_gallen_map = pd.DataFrame({
-        'lat': [47.4245],
-        'lon': [9.3767]
-    })
-    st.map(st_gallen_map, zoom=12) # Added zoom level
+    # Create and display a general map of St. Gallen using Folium
+    general_map = folium.Map(
+        location=[47.4245, 9.3767],  # Center of St. Gallen
+        zoom_start=13,
+        tiles="CartoDB positron",  # A cleaner map style
+    )
+    
+    # Add bounds to restrict to St. Gallen area
+    sw = [47.3745, 9.3167]  # Southwest corner
+    ne = [47.4745, 9.4367]  # Northeast corner
+    general_map.fit_bounds([sw, ne])
+    
+    # Add a welcome marker
+    folium.Marker(
+        location=[47.4245, 9.3767],
+        popup="St. Gallen City Center",
+        tooltip="St. Gallen",
+        icon=folium.Icon(color="green", icon="info-sign", prefix="fa")
+    ).add_to(general_map)
+    
+    # Display the interactive map
+    folium_static(general_map)
 
     # Separator
     st.markdown("---")
-
     # Useful links (keeping the existing links, replace example.com with actual links if available)
     st.subheader("Useful links")
     st.markdown("[Complete recycling guide](https://www.stadt.sg.ch/home/umwelt-energie/entsorgung.html)") # Example link
