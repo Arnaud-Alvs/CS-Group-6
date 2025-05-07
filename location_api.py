@@ -175,25 +175,9 @@ def create_interactive_map(user_coords: Dict[str, float], collection_points: Lis
         tiles="CartoDB positron",
         max_bounds=True,  # Enable bounds restriction
     )
-    
-    # Define St. Gallen city boundaries more precisely
-    sw = [47.3745, 9.3167]  # Southwest corner
-    ne = [47.4745, 9.4367]  # Northeast corner
-    
-    # Set bounds to restrict to St. Gallen area
-    m.fit_bounds([sw, ne])
-    
+  
     # Add a tighter max bounds to prevent users from panning too far
     m.options['maxBounds'] = [[47.3600, 9.3000], [47.4800, 9.4500]]
-    
-    folium.Rectangle(
-        bounds=[[47.3600, 9.3000], [47.4800, 9.4500]],
-        color='#2c7fb8',
-        fill=False,
-        weight=2,
-        opacity=0.7,
-        tooltip="St. Gallen city limits"
-    ).add_to(m)
 
     m.get_root().html.add_child(folium.Element(
         """

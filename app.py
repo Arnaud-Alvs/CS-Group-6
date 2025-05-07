@@ -330,18 +330,6 @@ with tab1:
     # Create a mapping from English back to German for API calls
     waste_type_mapping = dict(zip(available_waste_types_english, available_waste_types_german))
 
-    selected_waste_type_english = st.selectbox(
-        "Select Waste Type:",
-        options=available_waste_types_english,
-        help="Choose the type of waste you want to dispose of."
-    )
-
-    user_address = st.text_input(
-        "Enter your Address in St. Gallen:",
-        placeholder="e.g., Musterstrasse 1",
-        help="Enter your address, it must include a street name and number."
-    )
-
     # Button to trigger the search
  # In app.py where you handle the "Find Information" button click and display results:
 
@@ -413,7 +401,6 @@ if 'show_results' in st.session_state and st.session_state.show_results:
                     map_col, info_col = st.columns([3, 2])
                     
                     with map_col:
-                        st.markdown("**Interactive Map**")
                         st.caption("Hover over markers for info, click for details.")
                         
                         # Create the map in its own container
@@ -432,12 +419,9 @@ if 'show_results' in st.session_state and st.session_state.show_results:
                         st.markdown("**Nearest Locations**")
                         for i, point in enumerate(waste_info["collection_points"][:5]):  # Show top 5
                             with st.expander(f"{point['name']} ({point['distance']:.2f} km)"):
-                                st.markdown(f"**Accepted Types:** {', '.join([translate_waste_type(wt) for wt in point['waste_types']])}")
+                                st.markdown(f"**Accepted Waste:** {', '.join([translate_waste_type(wt) for wt in point['waste_types']])}")
                                 if point['opening_hours'] and point['opening_hours'] != "N/A":
                                     st.markdown(f"**Opening Hours:** {point['opening_hours']}")
-            
-            # Add some spacing
-            st.markdown("---")
             
             # Display collection date if available
             if waste_info["has_scheduled_collection"]:
@@ -820,20 +804,6 @@ with tab3:
 with st.sidebar:
     st.header("Options")
     
-    # Dark/light mode
-    if st.checkbox("Dark mode", value=False):
-        st.markdown("""
-        <style>
-        .stApp {
-            background-color: #121212;
-            color: white;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-    
-    # Application language (simulated)
-    st.selectbox("Language", ["English", "Français", "Deutsch", "Italiano"])
-    
     # Tips of the day
     st.subheader("Tip of the day")
     tips_of_the_day = [
@@ -848,19 +818,6 @@ with st.sidebar:
     ]
     import random
     st.info(random.choice(tips_of_the_day))
-    
-    # Separator
-    st.markdown("---")
-    
-    # St. Gallen collection points map
-    st.subheader("General map")
-    
-    # Display a small map centered on St. Gallen
-    st_gallen_map = pd.DataFrame({
-        'lat': [47.4245],
-        'lon': [9.3767]
-    })
-    st.map(st_gallen_map)
     
     # Separator
     st.markdown("---")
