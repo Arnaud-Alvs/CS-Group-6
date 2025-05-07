@@ -367,7 +367,7 @@ with tab1:
                 if user_coords:
                     st.write("Interactive map: hover over markers for quick info, click for details.")
                     interactive_map = create_interactive_map(user_coords, waste_info["collection_points"])
-                    folium_static(interactive_map)
+                    st_folium(interactive_map, width=800, height=500)
                 
                 # Display detailed list of nearest points
                 st.write("Details of nearest points (sorted by distance):")
