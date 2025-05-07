@@ -344,7 +344,7 @@ def get_available_waste_types() -> List[str]:
     # Based on the provided JSON snippets, these are the waste types available in the collection dates data.
     # If you need the types from sammelstellen.json, you would need to parse that data source.
     # Let's list the types found in abfuhrdaten-stadt-stgallen.json snippets.
-    return ["Kehricht", "Papier", "Karton", "Grüngut", "Altmetall"]
+    return ["Kehricht", "Papier", "Karton", "Grüngut", "Altmetall", "Glas", "Dosen","Aluminium", "Alttextilien", "Altöl", "Sonderabfall", "Styropor"]
 
 def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
     """
