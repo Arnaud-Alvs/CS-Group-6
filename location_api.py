@@ -31,21 +31,19 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
     """
     Get latitude and longitude from address using OpenStreetMap Nominatim API.
     Relies on explicit city and country parameters for St. Gallen, Switzerland.
-    Attempts to remove postal code and city/country from the address string for cleaner query.
+    Attempts to remove postal code from the address string for cleaner query in 'q'.
     """
     try:
         base_url = "https://nominatim.openstreetmap.org/search"
 
         # --- Address Cleaning ---
         # Attempt to remove common Swiss postal code patterns (4 digits, optionally followed by city name)
-        # and variations of St. Gallen and Switzerland from the address string.
-        # This aims to leave just the street name and number for the 'q' parameter.
+        # This aims to clean the address string slightly but keep street, number, city, etc.
         cleaned_address = re.sub(r'\b\d{4}\s*(?:St\.\s*Gallen)?\b', '', address, flags=re.IGNORECASE).strip()
-        cleaned_address = re.sub(r'\b(St\.\s*Gallen|StGallen|St. Gallen|Switzerland|Schweiz)\b', '', cleaned_address, flags=re.IGNORECASE).strip()
         # Remove trailing commas that might result from removal
         cleaned_address = cleaned_address.rstrip(',')
 
-        # Use only the cleaned street name and number in the 'q' parameter
+        # Use the slightly cleaned address string in the 'q' parameter
         address_for_query = cleaned_address
 
         # If the cleaned address is empty, we can't search
@@ -56,7 +54,7 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
 
 
         params = {
-            "q": address_for_query, # Use only the cleaned street and number
+            "q": address_for_query, # Use the slightly cleaned full address
             "format": "json",
             "limit": 1,
             "addressdetails": 1,
