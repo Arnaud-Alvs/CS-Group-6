@@ -251,7 +251,7 @@ def fetch_collection_dates() -> List[Dict[str, Any]]:
     """
     try:
         # Use the exact URL structure that you found working
-        url = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records"
+        url = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records?limit=20&refine=datum%3A%222025%22"
         
         # Primary attempt - with your specific format
         params = {
