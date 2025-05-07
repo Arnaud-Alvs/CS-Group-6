@@ -10,8 +10,8 @@ import pickle
 df = pd.read_csv("waste_text_dataset.csv")
 
 # Step 2: Prepare features (X) and labels (y)
-X = df["description"]  # text input
-y = df["category"]     # target class
+X = df["Description"]  # text input
+y = df["Category"]     # target class
 
 # Step 3: Encode the target labels (so the model works with numbers)
 label_encoder = LabelEncoder()

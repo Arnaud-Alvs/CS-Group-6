@@ -197,19 +197,20 @@ def predict_from_text(description, model=None, vectorizer=None, encoder=None):
             
             # Map category to UI format with emojis if needed
             category_mapping = {
-                "Household waste": "Household waste 🗑",
-                "Paper": "Paper 📄",
-                "Cardboard": "Cardboard 📦",
-                "Glass": "Glass 🍾",
-                "Green waste": "Green waste 🌿",
-                "Cans": "Cans 🥫",
-                "Aluminium": "Aluminium 🧴",
-                "Metal": "Metal 🪙",
-                "Textiles": "Textiles 👕",
-                "Oil": "Oil 🛢",
-                "Hazardous waste": "Hazardous waste ⚠",
-                "Foam packaging": "Foam packaging ☁"
-            }
+                    "Household": "Household waste 🗑",
+                    "Paper": "Paper 📄",
+                    "Cardboard": "Cardboard 📦",
+                    "Glass": "Glass 🍾",
+                    "Green": "Green waste 🌿",
+                    "Cans": "Cans 🥫",
+                    "Aluminium": "Aluminium 🧴",
+                    "Metal": "Metal 🪙",
+                    "Textiles": "Textiles 👕",
+                    "Oil": "Oil 🛢",
+                    "Hazardous": "Hazardous waste ⚠",
+                    "Foam packaging": "Foam packaging ☁"
+                    }
+
             ui_category = category_mapping.get(category, category)
             
             return ui_category, float(confidence)
