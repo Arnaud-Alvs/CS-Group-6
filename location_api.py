@@ -7,6 +7,18 @@ from typing import Dict, List, Optional, Any, Tuple
 from math import radians, sin, cos, sqrt, atan2
 import re # Import regex module
 
+# Configure logging for this module
+import logging
+logger = logging.getLogger(__name__)
+# Prevent duplicate handlers if Streamlit re-runs the script
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+
 # Base API URL
 BASE_API_URL = "https://daten.stadt.sg.ch"
 
@@ -18,45 +30,37 @@ COLLECTION_DATES_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/a
 def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dict[str, float]]:
     """
     Get latitude and longitude from address using OpenStreetMap Nominatim API.
-    Automatically appends "St. Gallen, Switzerland" if not present.
-    Attempts to remove postal code from the address string for cleaner query.
+    Relies on explicit city and country parameters for St. Gallen, Switzerland.
+    Attempts to remove postal code and city/country from the address string for cleaner query.
     """
     try:
         base_url = "https://nominatim.openstreetmap.org/search"
 
         # --- Address Cleaning ---
         # Attempt to remove common Swiss postal code patterns (4 digits, optionally followed by city name)
-        # This is a simple regex and might need refinement depending on input variations
+        # and variations of St. Gallen and Switzerland from the address string.
+        # This aims to leave just the street name and number for the 'q' parameter.
         cleaned_address = re.sub(r'\b\d{4}\s*(?:St\.\s*Gallen)?\b', '', address, flags=re.IGNORECASE).strip()
+        cleaned_address = re.sub(r'\b(St\.\s*Gallen|StGallen|St. Gallen|Switzerland|Schweiz)\b', '', cleaned_address, flags=re.IGNORECASE).strip()
         # Remove trailing commas that might result from removal
         cleaned_address = cleaned_address.rstrip(',')
 
-        # --- Ensure City and Country are Included ---
-        # Check if "st. gallen" (case-insensitive) is in the cleaned address
-        has_city = "st.gallen" in cleaned_address.lower() or "st. gallen" in cleaned_address.lower()
-        # Check if "switzerland" or "schweiz" (case-insensitive) is in the cleaned address
-        has_country = "switzerland" in cleaned_address.lower() or "schweiz" in cleaned_address.lower()
-
+        # Use only the cleaned street name and number in the 'q' parameter
         address_for_query = cleaned_address
 
-        # Append city and country if they are not already present
-        if not has_city and not has_country:
-             address_for_query = f"{cleaned_address}, St. Gallen, Switzerland"
-        elif not has_city and has_country:
-             # If country is there but city isn't, replace country with city, country
-             address_for_query = cleaned_address.replace("Switzerland", "St. Gallen, Switzerland").replace("schweiz", "St. Gallen, Schweiz")
-        elif has_city and not has_country:
-             # If city is there but country isn't, just append country
-             address_for_query = f"{cleaned_address}, Switzerland"
-        # If both are present, use the cleaned address as is
+        # If the cleaned address is empty, we can't search
+        if not address_for_query:
+             st.warning("Please enter a valid street name and number.")
+             logger.warning(f"Empty address string after cleaning: {address}")
+             return None
 
 
         params = {
-            "q": address_for_query, # Use the cleaned and formatted address for the query
+            "q": address_for_query, # Use only the cleaned street and number
             "format": "json",
             "limit": 1,
             "addressdetails": 1,
-            "countrycodes": "ch",  # Limit to Switzerland
+            "countrycodes": "ch",  # Explicitly limit to Switzerland
             "city": "St. Gallen"   # Explicitly specify city for better results
         }
 
@@ -65,6 +69,7 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
             "User-Agent": "WasteWise App - University Project"
         }
 
+        logger.info(f"Attempting to get coordinates for query: '{address_for_query}' with params: {params}")
         response = requests.get(base_url, params=params, headers=headers, timeout=30)
 
         # Raise an HTTPError for bad responses (4xx or 5xx)
@@ -73,15 +78,17 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
         data = response.json()
 
         if data and len(data) > 0:
+            logger.info(f"Successfully retrieved coordinates for {address}: {data[0]['lat']}, {data[0]['lon']}")
             # Return latitude and longitude as a dictionary
             return {"lat": float(data[0]["lat"]), "lon": float(data[0]["lon"])}
         else:
             st.warning(f"Could not find coordinates for address: {address}. Please try a more specific address.")
+            logger.warning(f"Nominatim found no results for address: {address}, query: {address_for_query}")
             return None
 
     except requests.exceptions.RequestException as e:
         st.error(f"Error fetching coordinates for {address}: {str(e)}. Please check the address format.")
-        logger.error(f"Request error for address {address}: {str(e)}")
+        logger.error(f"Request error for address {address}, query {address_for_query}: {str(e)}")
         return None
     except ValueError as e:
         st.error(f"Error parsing coordinate data for {address}: {str(e)}")
@@ -127,9 +134,11 @@ def fetch_collection_points() -> List[Dict[str, Any]]:
     try:
         # Set a higher limit to get more results, or remove it to use default
         params = {"limit": 100} # Increased limit for potentially more points
+        logger.info(f"Fetching collection points from: {COLLECTION_POINTS_ENDPOINT} with params: {params}")
         response = requests.get(COLLECTION_POINTS_ENDPOINT, params=params, timeout=30)
         response.raise_for_status() # Raise an HTTPError for bad responses
         data = response.json()
+        logger.info(f"Successfully fetched {len(data.get('results', []))} collection points.")
         # The actual records are in the 'results' key for v2.1
         return data.get('results', [])
     except requests.exceptions.RequestException as e:
@@ -154,9 +163,11 @@ def fetch_collection_dates() -> List[Dict[str, Any]]:
         # Note: The provided URL snippet uses 2025, so we'll keep that for now.
         # If you need the current year dynamically, replace "2025" with {current_year}
         params = {"limit": 1000, "refine": "datum:\"2025\""} # Increased limit and refined by year
+        logger.info(f"Fetching collection dates from: {COLLECTION_DATES_ENDPOINT} with params: {params}")
         response = requests.get(COLLECTION_DATES_ENDPOINT, params=params, timeout=30)
         response.raise_for_status() # Raise an HTTPError for bad responses
         data = response.json()
+        logger.info(f"Successfully fetched {len(data.get('results', []))} collection dates.")
         # The actual records are in the 'results' key for v2.1
         return data.get('results', [])
     except requests.exceptions.RequestException as e:
@@ -205,6 +216,7 @@ def find_collection_points(user_lat: float, user_lon: float, waste_type: str, al
 
     # Sort suitable points by distance
     suitable_points.sort(key=lambda x: x["distance"])
+    logger.info(f"Found {len(suitable_points)} suitable collection points for {waste_type}.")
 
     return suitable_points
 
@@ -225,6 +237,7 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
     # Split into parts to check for partial matches
     street_name_parts = [part.strip() for part in cleaned_street_name.split() if part.strip()]
 
+    logger.info(f"Searching for next collection date for waste type '{waste_type}' on street '{street_name}' (cleaned: '{cleaned_street_name}')")
 
     # Iterate through all fetched collection dates
     for item in all_dates:
@@ -266,6 +279,11 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
 
     # Sort relevant dates to find the soonest
     relevant_dates.sort(key=lambda x: x["date"])
+
+    if relevant_dates:
+        logger.info(f"Found {len(relevant_dates)} relevant collection dates. Next one is on {relevant_dates[0]['date']}")
+    else:
+        logger.info(f"No upcoming collection dates found for waste type '{waste_type}' on street '{street_name}'.")
 
     # Return the soonest date, or None if no future dates are found
     return relevant_dates[0] if relevant_dates else None
