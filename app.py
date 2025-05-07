@@ -317,10 +317,6 @@ with tab1:
         upcoming collection dates.
         """
     )
-
-    # Separator
-    st.markdown("---")
-
     # --- User Input Section ---
     # Get available waste types from location_api
     available_waste_types_german = get_available_waste_types()
