@@ -243,6 +243,7 @@ def fetch_collection_points() -> List[Dict[str, Any]]:
 
 
 # Function to fetch collection dates data from the API
+@st.cache_data(ttl=3600)
 def fetch_collection_dates() -> List[Dict[str, Any]]:
     """
     Fetches waste collection dates data from the St. Gallen Open Data API.
@@ -254,7 +255,7 @@ def fetch_collection_dates() -> List[Dict[str, Any]]:
         
         # Start with page 0
         offset = 0
-        limit = 100  # Number of records per page
+        limit = 500  # Number of records per page
         
         logger.info(f"Starting to fetch collection dates from {base_url}")
         
