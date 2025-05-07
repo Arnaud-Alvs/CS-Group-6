@@ -26,7 +26,7 @@ BASE_API_URL = "https://daten.stadt.sg.ch"
 
 # API Endpoints
 COLLECTION_POINTS_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/sammelstellen/records"
-COLLECTION_DATES_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records"
+COLLECTION_DATES_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records?select=zeit%2C%20strasse%2C%20sammlung%2C%20datum%2C%20titel&limit=20&refine=datum%3A%222025%22"
 
 # Function to get geographic coordinates (latitude, longitude) from an address
 def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dict[str, float]]:
@@ -246,40 +246,46 @@ def fetch_collection_points() -> List[Dict[str, Any]]:
 def fetch_collection_dates() -> List[Dict[str, Any]]:
     """
     Fetches waste collection dates data from the St. Gallen Open Data API.
-    The data is already filtered for the year 2025.
+    Uses a filtered URL to get only the essential fields.
     """
     try:
-        # Try different parameter formats that might work with the API
-        params_options = [
-            {"limit": 1000},  # Simple limit without date filter
-            {"limit": 500},   # Try with smaller limit
-            {"limit": 100},   # Even smaller limit
-            {}                # No parameters at all
-        ]
+        # Use the specific URL format that works
+        params = {
+            "select": "zeit, strasse, sammlung, datum, titel",
+            "limit": 1000,  # Increased from 20 to get more records
+            "refine": "datum:\"2025\""
+        }
         
-        for params in params_options:
-            try:
-                logger.info(f"Fetching collection dates from: {COLLECTION_DATES_ENDPOINT} with params: {params}")
-                response = requests.get(COLLECTION_DATES_ENDPOINT, params=params, timeout=30)
-                response.raise_for_status()  # This will raise an exception for HTTP errors
-                
-                data = response.json()
-                results = data.get('results', [])
-                
-                if results:
-                    logger.info(f"Successfully fetched {len(results)} collection dates.")
-                    return results
-                else:
-                    logger.warning(f"API returned empty results with params: {params}")
-            except requests.exceptions.RequestException as e:
-                logger.warning(f"Failed attempt with params {params}: {str(e)}")
-                continue
+        logger.info(f"Fetching collection dates from: {COLLECTION_DATES_ENDPOINT} with params: {params}")
+        response = requests.get(COLLECTION_DATES_ENDPOINT, params=params, timeout=30)
+        response.raise_for_status()
         
-        # If we reach here, all API attempts failed
-        logger.error("All API attempts failed to retrieve collection dates data.")
-        st.error("Unable to connect to the collection dates API. Please try again later.")
+        data = response.json()
+        results = data.get('results', [])
+        
+        if results:
+            logger.info(f"Successfully fetched {len(results)} collection dates.")
+            return results
+        else:
+            logger.warning("API returned empty results despite successful connection.")
+            st.warning("No collection dates found in the database. This may be a temporary issue.")
+            return []
+            
+    except requests.exceptions.RequestException as e:
+        error_message = str(e)
+        logger.error(f"Error fetching collection dates: {error_message}")
+        
+        # Provide a more helpful error message
+        if "400" in error_message:
+            st.error("The collection dates API returned a Bad Request error. The query parameters may need adjustment.")
+        elif "404" in error_message:
+            st.error("The collection dates API endpoint was not found. The service may have changed.")
+        elif "timeout" in error_message.lower():
+            st.error("The connection to the collection dates API timed out. The server may be under heavy load.")
+        else:
+            st.error(f"Error fetching collection dates data: {error_message}")
+        
         return []
-        
     except Exception as e:
         st.error(f"An unexpected error occurred while fetching collection dates: {str(e)}")
         logger.error(f"Unexpected error fetching collection dates: {str(e)}")
