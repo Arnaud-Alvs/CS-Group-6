@@ -246,18 +246,12 @@ def fetch_collection_points() -> List[Dict[str, Any]]:
 def fetch_collection_dates() -> List[Dict[str, Any]]:
     """
     Fetches waste collection dates data from the St. Gallen Open Data API.
-    Uses a filtered URL to get only the essential fields.
+    Uses the direct endpoint URL which already includes the parameters.
     """
     try:
-        # Use the specific URL format that works
-        params = {
-            "select": "zeit, strasse, sammlung, datum, titel",
-            "limit": 1000,  # Increased from 20 to get more records
-            "refine": "datum:\"2025\""
-        }
-        
-        logger.info(f"Fetching collection dates from: {COLLECTION_DATES_ENDPOINT} with params: {params}")
-        response = requests.get(COLLECTION_DATES_ENDPOINT, params=params, timeout=30)
+        logger.info(f"Fetching collection dates from: {COLLECTION_DATES_ENDPOINT}")
+        # Make request directly to the endpoint which already has the parameters
+        response = requests.get(COLLECTION_DATES_ENDPOINT, timeout=30)
         response.raise_for_status()
         
         data = response.json()
@@ -277,7 +271,7 @@ def fetch_collection_dates() -> List[Dict[str, Any]]:
         
         # Provide a more helpful error message
         if "400" in error_message:
-            st.error("The collection dates API returned a Bad Request error. The query parameters may need adjustment.")
+            st.error("The collection dates API returned a Bad Request error. Please contact support.")
         elif "404" in error_message:
             st.error("The collection dates API endpoint was not found. The service may have changed.")
         elif "timeout" in error_message.lower():
