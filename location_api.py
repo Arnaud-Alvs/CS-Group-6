@@ -32,6 +32,7 @@ COLLECTION_DATES_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/a
 def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dict[str, float]]:
     """
     Get latitude and longitude from address using OpenStreetMap Nominatim API.
+    Explicitly restricts results to St. Gallen city area.
     """
     try:
         import time
@@ -41,7 +42,6 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
         base_url = "https://nominatim.openstreetmap.org/search"
 
         # --- Address Cleaning ---
-        # Clean the address as you were doing before
         cleaned_address = address
         cleaned_address = re.sub(r'\b\d{4}\b', '', cleaned_address, flags=re.IGNORECASE).strip()
         
@@ -66,14 +66,17 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
              logger.warning(f"Empty address string after cleaning: {address}")
              return None
 
-        # Create a more specific query for Switzerland/St. Gallen
-        structured_query = f"{address_for_query}, St. Gallen, Switzerland"
-        
+        # Use structured search for more precise results
         params = {
-            "q": structured_query,  # Use a structured query format
+            "street": address_for_query,
+            "city": "St. Gallen",
+            "country": "Switzerland",
             "format": "json",
             "limit": 1,
             "addressdetails": 1,
+            # Add a bounding box for St. Gallen city area to restrict results
+            "viewbox": "9.3167,47.3745,9.4367,47.4745",  # min lon, min lat, max lon, max lat
+            "bounded": 1  # Restrict to the viewbox
         }
 
         # Nominatim REQUIRES a unique user agent identifying your application
@@ -82,7 +85,7 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
             "Accept-Language": "de,en"  # Add German as preferred language
         }
 
-        logger.info(f"Attempting to get coordinates for original address: '{address}', query: '{structured_query}'")
+        logger.info(f"Attempting to get coordinates for address: '{address}', using structured query with params: {params}")
         response = requests.get(base_url, params=params, headers=headers, timeout=30)
 
         # Raise an HTTPError for bad responses (4xx or 5xx)
@@ -91,17 +94,36 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
         data = response.json()
 
         if data and len(data) > 0:
-            logger.info(f"Successfully retrieved coordinates for {address}: {data[0]['lat']}, {data[0]['lon']}")
-            # Return latitude and longitude as a dictionary
-            return {"lat": float(data[0]["lat"]), "lon": float(data[0]["lon"])}
+            # Verify the result is actually in St. Gallen
+            if "address" in data[0] and data[0]["address"].get("city", "").lower() == "st. gallen":
+                logger.info(f"Successfully retrieved coordinates for {address}: {data[0]['lat']}, {data[0]['lon']}")
+                return {"lat": float(data[0]["lat"]), "lon": float(data[0]["lon"])}
+            else:
+                # Check if it's in another part of St. Gallen (might be a district)
+                found_in_st_gallen = False
+                address_parts = data[0].get("address", {})
+                
+                # Check various address fields for "St. Gallen" or similar
+                for field in ["city", "town", "village", "municipality", "county"]:
+                    if field in address_parts and "gallen" in address_parts[field].lower():
+                        found_in_st_gallen = True
+                        break
+                
+                if found_in_st_gallen:
+                    logger.info(f"Found address in St. Gallen area: {address}: {data[0]['lat']}, {data[0]['lon']}")
+                    return {"lat": float(data[0]["lat"]), "lon": float(data[0]["lon"])}
+                else:
+                    st.warning(f"Found an address matching '{address}' but it appears to be outside St. Gallen. Please be more specific.")
+                    logger.warning(f"Found address outside St. Gallen: {data[0]}")
+                    return None
         else:
             st.warning(f"Could not find coordinates for address: {address}. Please try a more specific address.")
-            logger.warning(f"Nominatim found no results for address: {address}, query: {structured_query}")
+            logger.warning(f"Nominatim found no results for address: {address}")
             return None
 
     except requests.exceptions.RequestException as e:
         st.error(f"Error fetching coordinates for {address}: {str(e)}. Please check the address format.")
-        logger.error(f"Request error for address {address}, query {structured_query if 'structured_query' in locals() else 'unknown'}: {str(e)}")
+        logger.error(f"Request error for address {address}: {str(e)}")
         return None
     except ValueError as e:
         st.error(f"Error parsing coordinate data for {address}: {str(e)}")
