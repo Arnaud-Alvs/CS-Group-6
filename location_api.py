@@ -243,7 +243,6 @@ def fetch_collection_points() -> List[Dict[str, Any]]:
 
 
 # Function to fetch collection dates data from the API
-@st.cache_data(ttl=3600)
 def fetch_collection_dates() -> List[Dict[str, Any]]:
     """
     Fetches waste collection dates data from the St. Gallen Open Data API.
