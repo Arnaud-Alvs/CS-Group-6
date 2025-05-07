@@ -197,105 +197,101 @@ def find_collection_points(user_lat: float, user_lon: float, waste_type: str, al
     their distance from the user's location. Returns a list of points sorted by distance.
     """
     suitable_points = []
-
+    
     # Iterate through all fetched collection points
     for point in all_points:
         # Check if the point has location data and accepts the waste type
-        if "geo_point_2d" in point and point["geo_point_2d"] and \
-           "abfallarten" in point and waste_type in point["abfallarten"]:
-            try:
-                point_lat = float(point["geo_point_2d"]["lat"])
-                point_lon = float(point["geo_point_2d"]["lon"])
-
-                # Calculate distance
-                distance = haversine_distance(user_lat, user_lon, point_lat, point_lon)
-
-                # Add distance and formatted address to the point data
-                point_data = {
-                    "name": point.get("standort", "Unknown Location"),
-                    "lat": point_lat,
-                    "lon": point_lon,
-                    "distance": distance,
-                    "waste_types": point.get("abfallarten", []),
-                    "opening_hours": point.get("oeffnungsz", "N/A") # Add opening hours
-                }
-                suitable_points.append(point_data)
-            except (ValueError, KeyError) as e:
-                st.warning(f"Skipping invalid collection point data: {point}. Error: {e}")
-                logger.warning(f"Skipping invalid collection point data: {point}. Error: {e}")
-                continue # Skip this point if data is invalid
+        if "geo_point_2d" in point and point["geo_point_2d"] and "abfallarten" in point:
+            # Case-insensitive check for the waste type
+            waste_types_at_point = [wt.lower() for wt in point.get("abfallarten", [])]
+            
+            if waste_type.lower() in waste_types_at_point:
+                try:
+                    point_lat = float(point["geo_point_2d"]["lat"])
+                    point_lon = float(point["geo_point_2d"]["lon"])
+                    
+                    # Calculate distance
+                    distance = haversine_distance(user_lat, user_lon, point_lat, point_lon)
+                    
+                    # Add distance and formatted address to the point data
+                    point_data = {
+                        "name": point.get("standort", "Unknown Location"),
+                        "lat": point_lat,
+                        "lon": point_lon,
+                        "distance": distance,
+                        "waste_types": point.get("abfallarten", []),
+                        "opening_hours": point.get("oeffnungsz", "N/A") 
+                    }
+                    suitable_points.append(point_data)
+                except (ValueError, KeyError) as e:
+                    logger.warning(f"Skipping invalid collection point data: {str(e)}")
+                    continue # Skip this point if data is invalid
 
     # Sort suitable points by distance
     suitable_points.sort(key=lambda x: x["distance"])
-    logger.info(f"Found {len(suitable_points)} suitable collection points for {waste_type}.")
-
+    
     return suitable_points
 
 # Function to get the next collection date for a given waste type and street
 def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """
     Finds the next collection date for a specific waste type and street.
-    Searches through the fetched collection dates data.
-    Compares street names robustly by checking if the input street name
-    (or parts of it) are present in the list of streets for a collection entry.
     """
     today = datetime.now().date()
     relevant_dates = []
-
-    # Pre-process the input street name for robust comparison
-    # Remove common street suffixes and convert to lowercase
-    cleaned_street_name = street_name.lower().replace("strasse", "").replace("weg", "").replace("gasse", "").strip()
-    # Split into parts to check for partial matches
-    street_name_parts = [part.strip() for part in cleaned_street_name.split() if part.strip()]
-
-    logger.info(f"Searching for next collection date for waste type '{waste_type}' on street '{street_name}' (cleaned: '{cleaned_street_name}')")
-
-    # Iterate through all fetched collection dates
+    
+    # Clean the street name for better matching
+    cleaned_street_name = street_name.lower()
+    cleaned_street_name = re.sub(r'strasse$|straße$|weg$|gasse$', '', cleaned_street_name).strip()
+    
+    logger.info(f"Searching for collection dates for '{waste_type}' on street '{street_name}' (cleaned: '{cleaned_street_name}')")
+    
     for item in all_dates:
-        # Check if the item matches the waste type and street name
-        # Case-insensitive comparison for street names
-        item_streets = [s.lower() for s in item.get("strasse", [])]
-
-        # Check if any part of the cleaned input street name is in the item's street list
-        # Or if the full cleaned street name is a substring of any item street
+        if "sammlung" not in item or "strasse" not in item or "datum" not in item:
+            continue
+            
+        # Check if this item is for the waste type we're looking for
+        if item["sammlung"].lower() != waste_type.lower():
+            continue
+            
+        # Get the list of streets for this collection
+        streets = [s.lower() for s in item.get("strasse", [])]
+        
+        # Check if our street is in the list (using partial matching)
         street_match = False
-        if street_name_parts:
-            for part in street_name_parts:
-                 if any(part in item_s for item_s in item_streets):
-                     street_match = True
-                     break
-        # Also check if the full cleaned name is a substring in case of single word street names
-        if not street_match and cleaned_street_name:
-             if any(cleaned_street_name in item_s for item_s in item_streets):
-                 street_match = True
-
-
-        if item.get("sammlung") == waste_type and street_match:
+        for street in streets:
+            street_lower = street.lower()
+            # Remove common suffixes for better matching
+            street_clean = re.sub(r'strasse$|straße$|weg$|gasse$', '', street_lower).strip()
+            
+            # Check for various matching conditions
+            if (cleaned_street_name in street_clean or 
+                street_clean in cleaned_street_name or
+                street_lower.startswith(cleaned_street_name) or
+                cleaned_street_name.startswith(street_clean)):
+                street_match = True
+                break
+                
+        if street_match:
             try:
-                # Parse the date and check if it's in the future or today
-                collection_date_str = item.get("datum")
-                if collection_date_str:
-                    collection_date = datetime.strptime(collection_date_str, "%Y-%m-%d").date()
-                    if collection_date >= today:
-                        relevant_dates.append({
-                            "date": collection_date,
-                            "time": item.get("zeit", "N/A"),
-                            "description": item.get("titel", "Collection"),
-                            "area": item.get("gebietsbezeichnung", "N/A")
-                        })
-            except ValueError as e:
-                st.warning(f"Skipping invalid collection date data: {item}. Error: {e}")
-                logger.warning(f"Skipping invalid collection date data: {item}. Error: {e}")
-                continue # Skip this item if date format is invalid
-
+                # Parse the date
+                collection_date = datetime.strptime(item["datum"], "%Y-%m-%d").date()
+                
+                # Only include future dates
+                if collection_date >= today:
+                    relevant_dates.append({
+                        "date": collection_date,
+                        "time": item.get("zeit", "N/A"),
+                        "description": item.get("titel", "Collection"),
+                        "area": item.get("gebietsbezeichnung", "N/A")
+                    })
+            except ValueError:
+                logger.warning(f"Invalid date format in collection data: {item['datum']}")
+                continue
+    
     # Sort relevant dates to find the soonest
     relevant_dates.sort(key=lambda x: x["date"])
-
-    if relevant_dates:
-        logger.info(f"Found {len(relevant_dates)} relevant collection dates. Next one is on {relevant_dates[0]['date']}")
-    else:
-        logger.info(f"No upcoming collection dates found for waste type '{waste_type}' on street '{street_name}'.")
-
+    
     # Return the soonest date, or None if no future dates are found
     return relevant_dates[0] if relevant_dates else None
 
@@ -349,6 +345,93 @@ def get_available_waste_types() -> List[str]:
     # If you need the types from sammelstellen.json, you would need to parse that data source.
     # Let's list the types found in abfuhrdaten-stadt-stgallen.json snippets.
     return ["Kehricht", "Papier", "Karton", "Grüngut", "Altmetall"]
+
+def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
+    """
+    Handles waste disposal lookup based on user address and waste type.
+    Returns both collection points and scheduled dates when available.
+    """
+    results = {
+        "waste_type": waste_type,
+        "collection_points": [],
+        "next_collection_date": None,
+        "has_disposal_locations": False,
+        "has_scheduled_collection": False,
+        "message": ""
+    }
+    
+    # First, get coordinates for the user's address
+    coordinates = get_coordinates(address)
+    if not coordinates:
+        results["message"] = f"Could not find coordinates for address: {address}. Please try a more specific address."
+        return results
+    
+    # Get all collection points
+    all_points = fetch_collection_points()
+    
+    # Get all collection dates
+    all_dates = fetch_collection_dates()
+    
+    # Normalize waste type to match the data sources
+    waste_type_original = waste_type
+    waste_type_mapping = {
+        "paper": "Papier",
+        "cardboard": "Karton",
+        "household waste": "Kehricht",
+        "green waste": "Grüngut",
+        "metal": "Altmetall",
+        "aluminum": "Aluminium",
+        "glass": "Glas",
+        "oil": "Altöl",
+        "textiles": "Alttextilien",
+        "cans": "Dosen"
+    }
+    
+    # Try to normalize the waste type (if in English)
+    if waste_type.lower() in waste_type_mapping:
+        waste_type = waste_type_mapping[waste_type.lower()]
+    
+    # 1. Find collection points for the waste type
+    collection_points = find_collection_points(
+        coordinates["lat"], 
+        coordinates["lon"], 
+        waste_type, 
+        all_points
+    )
+    
+    results["collection_points"] = collection_points
+    results["has_disposal_locations"] = len(collection_points) > 0
+    
+    # 2. Get the next collection date for the waste type
+    street_name = address.split()[0]  # Extract street name from address
+    next_date = get_next_collection_date(street_name, waste_type, all_dates)
+    
+    results["next_collection_date"] = next_date
+    results["has_scheduled_collection"] = next_date is not None
+    
+    # 3. Generate appropriate message based on results
+    if results["has_disposal_locations"] and results["has_scheduled_collection"]:
+        results["message"] = (
+            f"{waste_type} can be dropped off at {len(collection_points)} nearby locations "
+            f"AND is collected on {next_date['date'].strftime('%A, %B %d, %Y')} {next_date.get('time', '')}"
+        )
+    elif results["has_disposal_locations"]:
+        results["message"] = (
+            f"{waste_type} can be dropped off at {len(collection_points)} nearby locations. "
+            f"There is no scheduled collection service for this waste type."
+        )
+    elif results["has_scheduled_collection"]:
+        results["message"] = (
+            f"{waste_type} will be collected on {next_date['date'].strftime('%A, %B %d, %Y')} {next_date.get('time', '')}. "
+            f"There are no drop-off points available for this waste type."
+        )
+    else:
+        results["message"] = (
+            f"No disposal options found for {waste_type_original}. "
+            f"Please check the waste type or contact the local waste management office."
+        )
+    
+    return results
 
 # Note: The original code included endpoints as constants at the top.
 # We will keep them there for consistency.
