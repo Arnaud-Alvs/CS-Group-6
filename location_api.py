@@ -26,7 +26,7 @@ BASE_API_URL = "https://daten.stadt.sg.ch"
 
 # API Endpoints
 COLLECTION_POINTS_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/sammelstellen/records"
-COLLECTION_DATES_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records?select=zeit%2C%20strasse%2C%20sammlung%2C%20datum%2C%20titel&limit=20&refine=datum%3A%222025%22"
+COLLECTION_DATES_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records?select=zeit%2C%20strasse%2C%20sammlung%2C%20datum%2C%20titel&limit=1000&refine=datum%3A%222025%22"
 
 # Function to get geographic coordinates (latitude, longitude) from an address
 def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dict[str, float]]:
@@ -331,6 +331,7 @@ def find_collection_points(user_lat: float, user_lon: float, waste_type: str, al
 def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """
     Finds the next collection date for a specific waste type and street.
+    Improved to handle streets stored as a list in the database.
     """
     today = datetime.now().date()
     relevant_dates = []
@@ -342,6 +343,7 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
     logger.info(f"Searching for collection dates for '{waste_type}' on street '{street_name}' (cleaned: '{cleaned_street_name}')")
     
     for item in all_dates:
+        # Skip items that don't have the required fields
         if "sammlung" not in item or "strasse" not in item or "datum" not in item:
             continue
             
@@ -350,7 +352,26 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
             continue
             
         # Get the list of streets for this collection
-        streets = [s.lower() for s in item.get("strasse", [])]
+        streets_data = item.get("strasse", [])
+        
+        # Debug log to see what's in the streets data
+        logger.info(f"Streets data type: {type(streets_data)}, Content preview: {str(streets_data)[:100]}")
+        
+        # Handle streets based on the data type
+        if isinstance(streets_data, list):
+            streets = [s.lower() for s in streets_data]
+        elif isinstance(streets_data, str):
+            # If it's a string, it might be a JSON-encoded list
+            try:
+                streets_list = json.loads(streets_data)
+                streets = [s.lower() for s in streets_list]
+            except json.JSONDecodeError:
+                # If it's not valid JSON, treat it as a single street
+                streets = [streets_data.lower()]
+        else:
+            # Fallback case
+            streets = []
+            logger.warning(f"Unexpected streets data format: {type(streets_data)}")
         
         # Check if our street is in the list (using partial matching)
         street_match = False
@@ -359,33 +380,43 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
             # Remove common suffixes for better matching
             street_clean = re.sub(r'strasse$|straße$|weg$|gasse$', '', street_lower).strip()
             
+            # Log each street for debugging
+            logger.info(f"Comparing user street '{cleaned_street_name}' with database street '{street_clean}'")
+            
             # Check for various matching conditions
             if (cleaned_street_name in street_clean or 
                 street_clean in cleaned_street_name or
                 street_lower.startswith(cleaned_street_name) or
                 cleaned_street_name.startswith(street_clean)):
                 street_match = True
+                logger.info(f"MATCH FOUND: '{cleaned_street_name}' matches '{street_clean}'")
                 break
-                
+        
         if street_match:
             try:
                 # Parse the date
-                collection_date = datetime.strptime(item["datum"], "%Y-%m-%d").date()
-                
-                # Only include future dates
-                if collection_date >= today:
-                    relevant_dates.append({
-                        "date": collection_date,
-                        "time": item.get("zeit", "N/A"),
-                        "description": item.get("titel", "Collection"),
-                        "area": item.get("gebietsbezeichnung", "N/A")
-                    })
+                collection_date_str = item.get("datum")
+                if collection_date_str:
+                    collection_date = datetime.strptime(collection_date_str, "%Y-%m-%d").date()
+                    if collection_date >= today:
+                        relevant_dates.append({
+                            "date": collection_date,
+                            "time": item.get("zeit", "N/A"),
+                            "description": item.get("titel", "Collection"),
+                            "area": item.get("gebietsbezeichnung", "N/A")
+                        })
+                        logger.info(f"Added relevant date: {collection_date} for {waste_type}")
             except ValueError:
                 logger.warning(f"Invalid date format in collection data: {item['datum']}")
                 continue
     
     # Sort relevant dates to find the soonest
     relevant_dates.sort(key=lambda x: x["date"])
+    
+    if relevant_dates:
+        logger.info(f"Found {len(relevant_dates)} future collection dates. Next is on {relevant_dates[0]['date']}")
+    else:
+        logger.warning(f"No future collection dates found for waste type '{waste_type}' on street '{street_name}'")
     
     # Return the soonest date, or None if no future dates are found
     return relevant_dates[0] if relevant_dates else None
