@@ -5,6 +5,7 @@ import streamlit as st
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 from math import radians, sin, cos, sqrt, atan2
+import re # Import regex module
 
 # Base API URL
 BASE_API_URL = "https://daten.stadt.sg.ch"
@@ -17,25 +18,46 @@ COLLECTION_DATES_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/a
 def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dict[str, float]]:
     """
     Get latitude and longitude from address using OpenStreetMap Nominatim API.
-    Adds "St. Gallen, Switzerland" if not present to improve accuracy.
+    Automatically appends "St. Gallen, Switzerland" if not present.
+    Attempts to remove postal code from the address string for cleaner query.
     """
     try:
         base_url = "https://nominatim.openstreetmap.org/search"
 
-        # Add city and country if not already present
-        if "st.gallen" not in address.lower() and "st. gallen" not in address.lower():
-            if "switzerland" not in address.lower() and "schweiz" not in address.lower():
-                address = f"{address}, St. Gallen, Switzerland"
-            else:
-                address = address.replace("Switzerland", "St. Gallen, Switzerland").replace("schweiz", "St. Gallen, Schweiz")
+        # --- Address Cleaning ---
+        # Attempt to remove common Swiss postal code patterns (4 digits, optionally followed by city name)
+        # This is a simple regex and might need refinement depending on input variations
+        cleaned_address = re.sub(r'\b\d{4}\s*(?:St\.\s*Gallen)?\b', '', address, flags=re.IGNORECASE).strip()
+        # Remove trailing commas that might result from removal
+        cleaned_address = cleaned_address.rstrip(',')
+
+        # --- Ensure City and Country are Included ---
+        # Check if "st. gallen" (case-insensitive) is in the cleaned address
+        has_city = "st.gallen" in cleaned_address.lower() or "st. gallen" in cleaned_address.lower()
+        # Check if "switzerland" or "schweiz" (case-insensitive) is in the cleaned address
+        has_country = "switzerland" in cleaned_address.lower() or "schweiz" in cleaned_address.lower()
+
+        address_for_query = cleaned_address
+
+        # Append city and country if they are not already present
+        if not has_city and not has_country:
+             address_for_query = f"{cleaned_address}, St. Gallen, Switzerland"
+        elif not has_city and has_country:
+             # If country is there but city isn't, replace country with city, country
+             address_for_query = cleaned_address.replace("Switzerland", "St. Gallen, Switzerland").replace("schweiz", "St. Gallen, Schweiz")
+        elif has_city and not has_country:
+             # If city is there but country isn't, just append country
+             address_for_query = f"{cleaned_address}, Switzerland"
+        # If both are present, use the cleaned address as is
+
 
         params = {
-            "q": address,
+            "q": address_for_query, # Use the cleaned and formatted address for the query
             "format": "json",
             "limit": 1,
             "addressdetails": 1,
             "countrycodes": "ch",  # Limit to Switzerland
-            "city": "St. Gallen"   # Focus on St. Gallen
+            "city": "St. Gallen"   # Explicitly specify city for better results
         }
 
         # Using a descriptive User-Agent is good practice
@@ -58,13 +80,16 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
             return None
 
     except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching coordinates for {address}: {str(e)}")
+        st.error(f"Error fetching coordinates for {address}: {str(e)}. Please check the address format.")
+        logger.error(f"Request error for address {address}: {str(e)}")
         return None
     except ValueError as e:
         st.error(f"Error parsing coordinate data for {address}: {str(e)}")
+        logger.error(f"Value error for address {address}: {str(e)}")
         return None
     except Exception as e:
-        st.error(f"An unexpected error occurred while getting coordinates: {str(e)}")
+        st.error(f"An unexpected error occurred while getting coordinates for {address}: {str(e)}")
+        logger.error(f"Unexpected error for address {address}: {str(e)}")
         return None
 
 # Function to calculate the distance between two points using the Haversine formula
@@ -109,9 +134,11 @@ def fetch_collection_points() -> List[Dict[str, Any]]:
         return data.get('results', [])
     except requests.exceptions.RequestException as e:
         st.error(f"Error fetching collection points data: {str(e)}")
+        logger.error(f"Error fetching collection points: {str(e)}")
         return []
     except Exception as e:
         st.error(f"An unexpected error occurred while fetching collection points: {str(e)}")
+        logger.error(f"Unexpected error fetching collection points: {str(e)}")
         return []
 
 
@@ -134,9 +161,11 @@ def fetch_collection_dates() -> List[Dict[str, Any]]:
         return data.get('results', [])
     except requests.exceptions.RequestException as e:
         st.error(f"Error fetching collection dates data: {str(e)}")
+        logger.error(f"Error fetching collection dates: {str(e)}")
         return []
     except Exception as e:
         st.error(f"An unexpected error occurred while fetching collection dates: {str(e)}")
+        logger.error(f"Unexpected error fetching collection dates: {str(e)}")
         return []
 
 # Function to find nearest collection points for a given waste type and user location
@@ -171,6 +200,7 @@ def find_collection_points(user_lat: float, user_lon: float, waste_type: str, al
                 suitable_points.append(point_data)
             except (ValueError, KeyError) as e:
                 st.warning(f"Skipping invalid collection point data: {point}. Error: {e}")
+                logger.warning(f"Skipping invalid collection point data: {point}. Error: {e}")
                 continue # Skip this point if data is invalid
 
     # Sort suitable points by distance
@@ -183,16 +213,40 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
     """
     Finds the next collection date for a specific waste type and street.
     Searches through the fetched collection dates data.
+    Compares street names robustly by checking if the input street name
+    (or parts of it) are present in the list of streets for a collection entry.
     """
     today = datetime.now().date()
     relevant_dates = []
+
+    # Pre-process the input street name for robust comparison
+    # Remove common street suffixes and convert to lowercase
+    cleaned_street_name = street_name.lower().replace("strasse", "").replace("weg", "").replace("gasse", "").strip()
+    # Split into parts to check for partial matches
+    street_name_parts = [part.strip() for part in cleaned_street_name.split() if part.strip()]
+
 
     # Iterate through all fetched collection dates
     for item in all_dates:
         # Check if the item matches the waste type and street name
         # Case-insensitive comparison for street names
-        if item.get("sammlung") == waste_type and \
-           "strasse" in item and any(street_name.lower() in s.lower() for s in item["strasse"]):
+        item_streets = [s.lower() for s in item.get("strasse", [])]
+
+        # Check if any part of the cleaned input street name is in the item's street list
+        # Or if the full cleaned street name is a substring of any item street
+        street_match = False
+        if street_name_parts:
+            for part in street_name_parts:
+                 if any(part in item_s for item_s in item_streets):
+                     street_match = True
+                     break
+        # Also check if the full cleaned name is a substring in case of single word street names
+        if not street_match and cleaned_street_name:
+             if any(cleaned_street_name in item_s for item_s in item_streets):
+                 street_match = True
+
+
+        if item.get("sammlung") == waste_type and street_match:
             try:
                 # Parse the date and check if it's in the future or today
                 collection_date_str = item.get("datum")
@@ -207,6 +261,7 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
                         })
             except ValueError as e:
                 st.warning(f"Skipping invalid collection date data: {item}. Error: {e}")
+                logger.warning(f"Skipping invalid collection date data: {item}. Error: {e}")
                 continue # Skip this item if date format is invalid
 
     # Sort relevant dates to find the soonest
@@ -268,4 +323,3 @@ def get_available_waste_types() -> List[str]:
 
 # Note: The original code included endpoints as constants at the top.
 # We will keep them there for consistency.
-
