@@ -338,64 +338,75 @@ with tab1:
     )
 
     # Button to trigger the search
-    if st.button("Find Information"):
-        if not user_address:
-            st.warning("Please enter your address.")
-        elif not selected_waste_type_english:
-            st.warning("Please select a waste type.")
-        else:
-            # Translate selected waste type back to German for API calls
-            selected_waste_type_german = waste_type_mapping.get(selected_waste_type_english, selected_waste_type_english)
+ # In app.py where you handle the "Find Information" button click and display results:
 
-            st.info(f"Searching for collection points and dates for '{selected_waste_type_english}' near '{user_address}'...")
+if st.button("Find Information"):
+    if not user_address:
+        st.warning("Please enter your address.")
+    elif not selected_waste_type_english:
+        st.warning("Please select a waste type.")
+    else:
+        # Translate selected waste type back to German for API calls
+        selected_waste_type_german = waste_type_mapping.get(selected_waste_type_english, selected_waste_type_english)
 
+        with st.spinner(f"Searching for collection points and dates for '{selected_waste_type_english}' near '{user_address}'..."):
             # Use the combined function for waste disposal information
             waste_info = handle_waste_disposal(user_address, selected_waste_type_german)
             
-            # Display the message
-            st.markdown(f"### Results")
-            st.markdown(waste_info["message"])
+            # Create a container for results that won't disappear
+            results_container = st.container()
             
-            # Display collection points if available
-            if waste_info["has_disposal_locations"]:
-                st.subheader(f"Nearest Collection Points for {selected_waste_type_english}")
+            with results_container:
+                # Display the message
+                st.markdown(f"### Results")
+                st.markdown(waste_info["message"])
                 
-                # Get user coordinates for the map
-                user_coords = get_coordinates(user_address)
+                # Display collection points if available
+                if waste_info["has_disposal_locations"]:
+                    st.subheader(f"Nearest Collection Points for {selected_waste_type_english}")
+                    
+                    # Get user coordinates for the map
+                    user_coords = get_coordinates(user_address)
+                    
+                    # Create and display the interactive map
+                    if user_coords:
+                        st.write("Interactive map: hover over markers for quick info, click for details.")
+                        
+                        # Create map in a separate container that won't be affected by other UI updates
+                        map_container = st.container()
+                        with map_container:
+                            interactive_map = create_interactive_map(user_coords, waste_info["collection_points"])
+                            st_folium(interactive_map, width=800, height=500)
+                        
+                        # Add some spacing to ensure map is visible
+                        st.markdown("---")
+                    
+                    # Display detailed list of nearest points
+                    st.write("Details of nearest points (sorted by distance):")
+                    for i, point in enumerate(waste_info["collection_points"]):
+                        # Display up to a certain number of points, e.g., 5
+                        if i >= 5:
+                            break
+                        st.markdown(f"**{i+1}. {point['name']}**")
+                        st.markdown(f"Distance: {point['distance']:.2f} km")
+                        st.markdown(f"Accepted Waste Types: {', '.join([translate_waste_type(wt) for wt in point['waste_types']])}")
+                        if point['opening_hours'] and point['opening_hours'] != "N/A":
+                            st.markdown(f"Opening Hours: {point['opening_hours']}")
+                        st.markdown("---")
                 
-                # Create and display the interactive map
-                if user_coords:
-                    st.write("Interactive map: hover over markers for quick info, click for details.")
-                    interactive_map = create_interactive_map(user_coords, waste_info["collection_points"])
-                    st_folium(interactive_map, width=800, height=500)
-                
-                # Display detailed list of nearest points
-                st.write("Details of nearest points (sorted by distance):")
-                for i, point in enumerate(waste_info["collection_points"]):
-                    # Display up to a certain number of points, e.g., 5
-                    if i >= 5:
-                        break
-                    st.markdown(f"**{i+1}. {point['name']}**")
-                    st.markdown(f"Distance: {point['distance']:.2f} km")
-                    st.markdown(f"Accepted Waste Types: {', '.join([translate_waste_type(wt) for wt in point['waste_types']])}")
-                    if point['opening_hours'] and point['opening_hours'] != "N/A":
-                        st.markdown(f"Opening Hours: {point['opening_hours']}")
-                    st.markdown("---")
-            
-            # Display collection date if available
-            if waste_info["has_scheduled_collection"]:
-                st.subheader(f"Next Collection Date for {selected_waste_type_english}")
-                next_collection = waste_info["next_collection_date"]
-                
-                st.success(f"The next collection for {selected_waste_type_english} is on:")
-                st.markdown(f"- **Date:** {next_collection['date'].strftime('%A, %B %d, %Y')}")
-                if next_collection['time'] and next_collection['time'] != "N/A":
-                    st.markdown(f"- **Time:** {next_collection['time']}")
-                if next_collection['description'] and next_collection['description'] != "Collection":
-                    st.markdown(f"- **Description:** {next_collection['description']}")
-                if next_collection['area'] and next_collection['area'] != "N/A":
-                    st.markdown(f"- **Area:** {next_collection['area']}")
-
+                # Display collection date if available
+                if waste_info["has_scheduled_collection"]:
+                    st.subheader(f"Next Collection Date for {selected_waste_type_english}")
+                    next_collection = waste_info["next_collection_date"]
+                    
+                    st.success(f"The next collection for {selected_waste_type_english} is on:")
+                    st.markdown(f"- **Date:** {next_collection['date'].strftime('%A, %B %d, %Y')}")
+                    if next_collection['time'] and next_collection['time'] != "N/A":
+                        st.markdown(f"- **Time:** {next_collection['time']}")
+                    if next_collection['description'] and next_collection['description'] != "Collection":
+                        st.markdown(f"- **Description:** {next_collection['description']}")
+                    if next_collection['area'] and next_collection['area'] != "N/A":
+                        st.markdown(f"- **Area:** {next_collection['area']}")
     # Separator
     st.markdown("---")
 
