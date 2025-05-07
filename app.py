@@ -18,22 +18,28 @@ logger = logging.getLogger(__name__)
 # Import functions from location_api.py
 try:
     from location_api import (
-        get_coordinates, 
-        find_collection_points, 
-        get_collection_dates, 
-        format_collection_points, 
+        get_coordinates,
+        find_collection_points,
+        fetch_collection_dates, # Corrected import: fetch_collection_dates
+        get_next_collection_date, # Corrected import: get_next_collection_date
+        format_collection_points,
         get_available_waste_types,
-        translate_waste_type
+        translate_waste_type,
+        fetch_collection_points, # Import fetch_collection_points
+        COLLECTION_POINTS_ENDPOINT,
+        COLLECTION_DATES_ENDPOINT  
     )
     logger.info(f"Successfully imported location_api functions")
+    logger.info(f"Collection Points API: {COLLECTION_POINTS_ENDPOINT}")
+    logger.info(f"Collection Dates API: {COLLECTION_DATES_ENDPOINT}")
 except ImportError as e:
     st.error(f"Failed to import from location_api.py: {str(e)}")
     logger.error(f"Import error: {str(e)}")
-    st.stop()
+    st.stop() # Stop execution if the core dependency is missing
 except Exception as e:
-    st.error(f"Unexpected error when importing location_api.py: {str(e)}")
+    st.error(f"An unexpected error occurred while importing location_api.py: {str(e)}")
     logger.error(f"Unexpected error: {str(e)}")
-    st.stop()
+    st.stop() # Stop execution on other import errors
 
 # Page configuration
 st.set_page_config(
@@ -292,125 +298,187 @@ def convert_api_to_ui_waste_type(api_waste_type):
 tab1, tab2, tab3 = st.tabs(["Find a collection point", "Identify waste", "About"])
 
 with tab1:
-    st.header("Find where to dispose of your waste")
-    
-    # Get available waste types from UI format
-    ui_waste_types = [
-        "Household waste 🗑",
-        "Paper 📄",
-        "Cardboard 📦",
-        "Glass 🍾",
-        "Green waste 🌿",
-        "Cans 🥫",
-        "Aluminium 🧴",
-        "Metal 🪙",
-        "Textiles 👕",
-        "Oil 🛢",
-        "Hazardous waste ⚠",
-        "Foam packaging ☁"
-    ]
-    
-    # Ask for waste type
-    waste_type = st.selectbox(
-        "What type of waste do you want to dispose of?",
-        ui_waste_types
+    st.header("Find Collection Information")
+
+    st.markdown(
+        """
+        Welcome to WasteWise! Enter the type of waste you want to dispose of
+        and your address in St. Gallen to find nearby collection points and
+        upcoming collection dates.
+        """
     )
-    
-    # Convert selected waste type to API format
-    api_waste_type = convert_waste_type_to_api(waste_type)
-    
-    # Ask for location (with more specific instructions)
-    user_location = st.text_input(
-        "Enter your address in St. Gallen", 
-        placeholder="Example: Bahnhofstrasse 1, 9000 St. Gallen",
-        help="Enter your complete address including street name, number, postal code, and city"
+
+    # Separator
+    st.markdown("---")
+
+    # --- User Input Section ---
+    # Get available waste types from location_api
+    available_waste_types_german = get_available_waste_types()
+    # Translate waste types for the dropdown
+    available_waste_types_english = [translate_waste_type(wt) for wt in available_waste_types_german]
+
+    # Create a mapping from English back to German for API calls
+    waste_type_mapping = dict(zip(available_waste_types_english, available_waste_types_german))
+
+    selected_waste_type_english = st.selectbox(
+        "Select Waste Type:",
+        options=available_waste_types_english,
+        help="Choose the type of waste you want to dispose of."
     )
-    
-    # Fixed radius (not visible to user)
-    search_radius = 10  # 10 km maximum search radius
-    
-    if st.button("Search for collection points"):
-        if user_location:
-            with st.spinner("Searching for collection points..."):
-                # Get geographic coordinates of the address
-                coordinates = get_coordinates(user_location)
-                
-                if coordinates:
-                    st.info(f"✓ Found your location at coordinates: {coordinates['lat']:.4f}, {coordinates['lon']:.4f}")
-                    
-                    # Find nearby collection points
-                    collection_points = find_collection_points(coordinates, api_waste_type, search_radius)
-                    
-                    if collection_points:
-                        st.success(f"Found {len(collection_points)} collection points for {waste_type} within 10 km of your location")
-                        
-                        # Display map
-                        map_data, points = format_collection_points(collection_points)
-                        
-                        # Add user location to the map
-                        user_marker = pd.DataFrame([{
-                            'lat': coordinates['lat'],
-                            'lon': coordinates['lon'],
-                            'name': 'Your Location 📍'
-                        }])
-                        
-                        all_map_data = pd.concat([map_data, user_marker], ignore_index=True)
-                        st.map(all_map_data)
-                        
-                        # Display collection point details in a table
-                        st.subheader("Collection point details")
-                        
-                        # Create a table to display the details
-                        table_data = []
-                        for point in points:
-                            # Convert API waste types to UI format
-                            ui_waste_types_list = [convert_api_to_ui_waste_type(wt) for wt in point["waste_types"]]
-                            
-                            table_data.append({
-                                "Name": point["name"],
-                                "Address": point["address"],
-                                "Distance (km)": point["distance"],
-                                "Accepted waste types": ", ".join(ui_waste_types_list),
-                                "Hours": point["hours"] if point["hours"] else "Not specified"
-                            })
-                        
-                        # Sort by distance
-                        df = pd.DataFrame(table_data)
-                        df = df.sort_values("Distance (km)")
-                        st.table(df)
-                        
-                        # Search for upcoming collection dates
-                        st.subheader("Upcoming collection dates")
-                        with st.spinner("Searching for collection dates..."):
-                            collection_dates = get_collection_dates(api_waste_type, user_location)
-                            
-                            if collection_dates:
-                                # Display collection dates in a table
-                                date_data = []
-                                for date_info in collection_dates[:5]:  # Limit to 5 dates
-                                    date_obj = datetime.strptime(date_info["date"], "%Y-%m-%d")
-                                    formatted_date = date_obj.strftime("%d/%m/%Y")
-                                    
-                                    date_data.append({
-                                        "Date": formatted_date,
-                                        "Time": date_info["time"],
-                                        "Area": date_info["area"],
-                                        "Title": date_info["title"]
-                                    })
-                                
-                                st.table(pd.DataFrame(date_data))
-                                
-                                # Link to PDF if available
-                                if collection_dates[0].get("pdf"):
-                                    st.markdown(f"[Download the complete collection calendar (PDF)]({collection_dates[0]['pdf']})")
-                            else:
-                                st.info("No collection dates were found for this type of waste at your address.")
-                    else:
-                        st.warning(f"No collection points for {waste_type} were found within 10 km of your location. Try searching for a different waste type or check if you entered the correct address.")
-                else:
-                    st.error("Unable to locate the provided address. Please make sure to enter a complete address in St. Gallen, Switzerland.")
+
+    user_address = st.text_input(
+        "Enter your Address in St. Gallen:",
+        placeholder="e.g., Musterstrasse 1, St. Gallen",
+        help="Enter your full address, including street name and number."
+    )
+
+    # Button to trigger the search
+    if st.button("Find Information"):
+        if not user_address:
+            st.warning("Please enter your address.")
+        elif not selected_waste_type_english:
+             st.warning("Please select a waste type.")
         else:
-            st.error("Please enter your full address to search for collection points")
+            # Translate selected waste type back to German for API calls
+            selected_waste_type_german = waste_type_mapping.get(selected_waste_type_english, selected_waste_type_english)
+
+            st.info(f"Searching for collection points and dates for '{selected_waste_type_english}' near '{user_address}'...")
+
+            # 1. Get user coordinates
+            user_coords = get_coordinates(user_address)
+
+            if user_coords:
+                user_lat = user_coords["lat"]
+                user_lon = user_coords["lon"]
+
+                # Display user location on a temporary map (optional, for confirmation)
+                # st.subheader("Your Location")
+                # user_map_data = pd.DataFrame({'lat': [user_lat], 'lon': [user_lon]})
+                # st.map(user_map_data, zoom=12)
+
+                # 2. Fetch all collection points data
+                all_collection_points_data = fetch_collection_points()
+
+                if all_collection_points_data:
+                    # 3. Find suitable collection points near the user
+                    suitable_points = find_collection_points(user_lat, user_lon, selected_waste_type_german, all_collection_points_data)
+
+                    if suitable_points:
+                        st.subheader(f"Nearest Collection Points for {selected_waste_type_english}")
+
+                        # Format data for map and display
+                        map_data, display_points = format_collection_points(suitable_points)
+
+                        # Add user location to the map data for context
+                        user_location_df = pd.DataFrame({'lat': [user_lat], 'lon': [user_lon], 'name': ['Your Location']})
+                        map_data_with_user = pd.concat([user_location_df, map_data], ignore_index=True)
+
+                        # Display map centered around the user or the first suitable point
+                        if not map_data.empty:
+                             # Determine center for the map - can be user or average of points
+                             center_lat = user_lat # Center on user for now
+                             center_lon = user_lon # Center on user for now
+                             st.map(map_data_with_user, zoom=12) # Adjust zoom level as needed
+                        else:
+                             # If no suitable points, just show user location
+                             st.map(user_location_df, zoom=12)
+
+
+                        # Display detailed list of nearest points
+                        st.write("Details of nearest points (sorted by distance):")
+                        for i, point in enumerate(display_points):
+                            # Display up to a certain number of points, e.g., 5
+                            if i >= 5:
+                                break
+                            st.markdown(f"**{point['name']}**")
+                            st.markdown(f"Distance: {point['distance']:.2f} km")
+                            st.markdown(f"Accepted Waste Types: {', '.join([translate_waste_type(wt) for wt in point['waste_types']])}")
+                            if point['opening_hours'] and point['opening_hours'] != "N/A":
+                                 st.markdown(f"Opening Hours: {point['opening_hours']}")
+                            st.markdown("---")
+
+                    else:
+                        st.warning(f"No collection points found for '{selected_waste_type_english}' that accept this waste type near your location.")
+                else:
+                    st.error("Could not fetch collection points data from the API.")
+
+                # 4. Fetch all collection dates data
+                all_collection_dates_data = fetch_collection_dates() # Corrected function call
+
+                if all_collection_dates_data:
+                     # 5. Get the next collection date for the user's street and waste type
+                     # We need to extract the street name from the user's address
+                     # This is a simple approach; more robust parsing might be needed
+                     street_part = user_address.split(',')[0].strip() # Take part before first comma
+
+                     next_collection = get_next_collection_date(street_part, selected_waste_type_german, all_collection_dates_data) # Corrected function call
+
+                     st.subheader(f"Next Collection Date for {selected_waste_type_english} on your Street")
+
+                     if next_collection:
+                         st.success(f"The next collection for {selected_waste_type_english} is on:")
+                         st.markdown(f"- **Date:** {next_collection['date'].strftime('%Y-%m-%d')}")
+                         if next_collection['time'] and next_collection['time'] != "N/A":
+                             st.markdown(f"- **Time:** {next_collection['time']}")
+                         if next_collection['description'] and next_collection['description'] != "Collection":
+                              st.markdown(f"- **Description:** {next_collection['description']}")
+                         if next_collection['area'] and next_collection['area'] != "N/A":
+                              st.markdown(f"- **Area:** {next_collection['area']}")
+
+                     else:
+                         st.info(f"No upcoming collection dates found for '{selected_waste_type_english}' on a street matching '{street_part}'. Please check the official schedule or try a different street name variation.")
+                else:
+                     st.error("Could not fetch collection dates data from the API.")
+
+
+            else:
+                st.error("Could not get coordinates for the provided address. Please check the address and try again.")
+
+
+    # Separator
+    st.markdown("---")
+
+    # --- General Information Section (from original app.py snippet) ---
+    st.header("General Waste Information")
+
+    # Tip of the day (keeping the existing logic)
+    st.subheader("Tip of the Day")
+    tips_of_the_day = [
+        "Recycling one aluminum can saves enough energy to run a TV for three hours.",
+        "Paper can be recycled up to 7 times before the fibers become too short.",
+        "Glass is 100% recyclable and can be recycled infinitely without losing its quality!",
+        "A mobile phone contains more than 70 different materials, many of which are recyclable.",
+        "Batteries contain toxic heavy metals, never throw them away with household waste.",
+        "Consider putting a 'No Junk Mail' sticker on your mailbox to reduce paper waste.",
+        "Composting can reduce the volume of your household waste by up to 30%.",
+        "Remember to break down cardboard packaging before disposing of it to save space.",
+        "LED bulbs are less harmful to the environment and last longer."
+    ]
+    import random
+    st.info(random.choice(tips_of_the_day))
+
+    # Separator
+    st.markdown("---")
+
+    # St. Gallen collection points map (General Map)
+    st.subheader("General Collection Points Map (St. Gallen)")
+
+    # Display a small map centered on St. Gallen
+    st_gallen_map = pd.DataFrame({
+        'lat': [47.4245],
+        'lon': [9.3767]
+    })
+    st.map(st_gallen_map, zoom=12) # Added zoom level
+
+    # Separator
+    st.markdown("---")
+
+    # Useful links (keeping the existing links, replace example.com with actual links if available)
+    st.subheader("Useful links")
+    st.markdown("[Complete recycling guide](https://www.stadt.sg.ch/home/umwelt-energie/entsorgung.html)") # Example link
+    st.markdown("[Reducing waste in everyday life](https://www.bafu.admin.ch/bafu/en/home/topics/waste/guide-to-waste-a-z/avoiding-waste.html)") # Example link
+    st.markdown("[Waste legislation in Switzerland](https://www.bafu.admin.ch/bafu/en/home/topics/waste/legal-basis.html)") # Example link
+    st.markdown("[Official St. Gallen city website](https://www.stadt.sg.ch/)")
 
 with tab2:
     st.header("Identify your waste")
