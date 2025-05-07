@@ -37,13 +37,26 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
         base_url = "https://nominatim.openstreetmap.org/search"
 
         # --- Address Cleaning ---
-        # Remove common Swiss postal code patterns (4 digits, optionally followed by city name),
-        # variations of St. Gallen, and Switzerland from the address string.
-        # This aims to isolate just the street name and number.
-        cleaned_address = re.sub(r'\b\d{4}\s*(?:St\.\s*Gallen)?\b', '', address, flags=re.IGNORECASE).strip()
-        cleaned_address = re.sub(r'\b(St\.\s*Gallen|StGallen|St. Gallen|Switzerland|Schweiz)\b', '', cleaned_address, flags=re.IGNORECASE).strip()
-        # Remove trailing commas that might result from removal
-        cleaned_address = cleaned_address.rstrip(',')
+        # Create a list of patterns to remove from the address string
+        patterns_to_remove = [
+            r'\b\d{4}\b', # 4-digit postal codes
+            r'\bSt\.\s*Gallen\b', # Variations of "St. Gallen"
+            r'\bStGallen\b',
+            r'\bSt\. Gallen\b',
+            r'\bSwitzerland\b',
+            r'\bSchweiz\b',
+            r',\s*$', # Trailing comma
+            r'^\s*,\s*', # Leading comma
+        ]
+
+        cleaned_address = address
+        for pattern in patterns_to_remove:
+            cleaned_address = re.sub(pattern, '', cleaned_address, flags=re.IGNORECASE).strip()
+
+        # Remove any extra whitespace or commas that might remain
+        cleaned_address = re.sub(r'\s+', ' ', cleaned_address).strip()
+        cleaned_address = cleaned_address.strip(', ')
+
 
         # Use only the aggressively cleaned street name and number in the 'q' parameter
         address_for_query = cleaned_address
