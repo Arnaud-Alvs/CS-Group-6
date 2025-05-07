@@ -23,13 +23,9 @@ try:
         get_collection_dates, 
         format_collection_points, 
         get_available_waste_types,
-        translate_waste_type,
-        COLLECTION_POINTS_ENDPOINT,
-        COLLECTION_DATES_ENDPOINT
+        translate_waste_type
     )
     logger.info(f"Successfully imported location_api functions")
-    logger.info(f"Collection Points API: {COLLECTION_POINTS_ENDPOINT}")
-    logger.info(f"Collection Dates API: {COLLECTION_DATES_ENDPOINT}")
 except ImportError as e:
     st.error(f"Failed to import from location_api.py: {str(e)}")
     logger.error(f"Import error: {str(e)}")
@@ -70,11 +66,15 @@ def check_tensorflow_available():
     except ImportError:
         return False
 
-# Function to load the text model
+# Function to load the text model - fixed version
 @st.cache_resource
 def load_text_model():
-    """Load text classification model"""
+    """Load text classification model with proper error handling"""
     try:
+        if not check_ml_models_available():
+            logger.warning("ML model files not found")
+            return None, None, None
+            
         with open('waste_classifier.pkl', 'rb') as f:
             model = pickle.load(f)
         with open('waste_vectorizer.pkl', 'rb') as f:
@@ -82,9 +82,6 @@ def load_text_model():
         with open('waste_encoder.pkl', 'rb') as f:
             encoder = pickle.load(f)
         return model, vectorizer, encoder
-    except FileNotFoundError:
-        logger.warning("ML model files not found")
-        return None, None, None
     except Exception as e:
         logger.error(f"Error loading text model: {str(e)}")
         return None, None, None
@@ -92,14 +89,12 @@ def load_text_model():
 # Function to load the image model
 @st.cache_resource
 def load_image_model():
-    """Load image classification model"""
+    """Load image classification model with proper error handling"""
     try:
-        # Check if TensorFlow is available
         if not check_tensorflow_available():
             logger.warning("TensorFlow not available")
             return None
             
-        # Check if model file exists
         if not os.path.exists("waste_image_classifier.h5"):
             logger.warning("Image model file not found")
             return None
@@ -109,6 +104,153 @@ def load_image_model():
     except Exception as e:
         logger.error(f"Error loading image model: {str(e)}")
         return None
+
+# Rules-based fallback prediction when ML models aren't available
+def rule_based_prediction(description):
+    """Rule-based prediction for when ML models aren't available"""
+    description = description.lower()
+    
+    # Keywords for each category
+    keywords = {
+        "Household waste 🗑": ["trash", "garbage", "waste", "dirty", "leftover", "broken", "ordinary"],
+        "Paper 📄": ["paper", "newspaper", "magazine", "book", "printer", "envelope", "document"],
+        "Cardboard 📦": ["cardboard", "carton", "box", "packaging", "thick paper"],
+        "Glass 🍾": ["glass", "bottle", "jar", "container", "mirror", "window"],
+        "Green waste 🌿": ["green", "grass", "leaf", "leaves", "plant", "garden", "flower", "vegetable", "fruit"],
+        "Cans 🥫": ["can", "tin", "aluminum can", "soda", "drink can", "food can"],
+        "Aluminium 🧴": ["aluminum", "foil", "tray", "container", "lid", "wrap", "packaging"],
+        "Metal 🪙": ["metal", "iron", "steel", "scrap", "nails", "screws", "wire"],
+        "Textiles 👕": ["textile", "clothes", "fabric", "shirt", "pants", "cloth", "cotton", "wool"],
+        "Oil 🛢": ["oil", "cooking oil", "motor oil", "lubricant", "grease"],
+        "Hazardous waste ⚠": ["battery", "chemical", "toxic", "medicine", "paint", "solvent", "cleaner"],
+        "Foam packaging ☁": ["foam", "styrofoam", "polystyrene", "packing", "cushion", "insulation"]
+    }
+    
+    # Score each category
+    scores = {}
+    for category, word_list in keywords.items():
+        scores[category] = 0
+        for word in word_list:
+            if word in description:
+                scores[category] += 1
+    
+    # Find best category
+    if any(scores.values()):
+        best_category = max(scores, key=scores.get)
+        confidence = min(0.7, scores[best_category] / len(keywords[best_category]))
+        return best_category, confidence
+    else:
+        return "Household waste 🗑", 0.3  # Default category
+
+# Simple image-based prediction as fallback
+def simple_image_prediction(image):
+    """Simple color-based prediction as fallback for image classification"""
+    try:
+        # Convert to numpy array
+        img_array = np.array(image)
+        
+        # Analyze average color
+        avg_color = np.mean(img_array, axis=(0, 1))
+        
+        # Simple logic based on dominant color
+        r, g, b = avg_color[:3]
+        
+        if g > r and g > b:  # Green dominant
+            return "Green waste 🌿", 0.5
+        elif b > r and b > g:  # Blue dominant
+            return "Paper 📄", 0.4
+        elif r > g and r > b:  # Red/Brown dominant
+            return "Cardboard 📦", 0.4
+        elif r > 200 and g > 200 and b > 200:  # Very light
+            return "Foam packaging ☁", 0.4
+        elif r < 50 and g < 50 and b < 50:  # Very dark
+            return "Metal 🪙", 0.4
+        else:
+            return "Household waste 🗑", 0.3
+    except Exception as e:
+        logger.error(f"Error in color-based prediction: {str(e)}")
+        return "Household waste 🗑", 0.3
+
+# Enhanced predict_from_text function with fallback
+def predict_from_text(description, model=None, vectorizer=None, encoder=None):
+    """Predict waste type from text with fallback to rule-based"""
+    if not description:
+        return None, 0.0
+    
+    # Use ML model if available
+    if model is not None and vectorizer is not None and encoder is not None:
+        try:
+            description = description.lower()
+            X_new = vectorizer.transform([description])
+            prediction = model.predict(X_new)[0]
+            probabilities = model.predict_proba(X_new)[0]
+            confidence = probabilities[prediction]
+            
+            # Get category from encoder and ensure it's in the right format
+            category = encoder.inverse_transform([prediction])[0]
+            
+            # Map category to UI format with emojis if needed
+            category_mapping = {
+                "Household waste": "Household waste 🗑",
+                "Paper": "Paper 📄",
+                "Cardboard": "Cardboard 📦",
+                "Glass": "Glass 🍾",
+                "Green waste": "Green waste 🌿",
+                "Cans": "Cans 🥫",
+                "Aluminium": "Aluminium 🧴",
+                "Metal": "Metal 🪙",
+                "Textiles": "Textiles 👕",
+                "Oil": "Oil 🛢",
+                "Hazardous waste": "Hazardous waste ⚠",
+                "Foam packaging": "Foam packaging ☁"
+            }
+            ui_category = category_mapping.get(category, category)
+            
+            return ui_category, float(confidence)
+        except Exception as e:
+            logger.error(f"Error in ML text prediction: {str(e)}")
+            # Fall back to rule-based
+            return rule_based_prediction(description)
+    else:
+        # Fall back to rule-based prediction
+        logger.info("ML model not available, using rule-based prediction")
+        return rule_based_prediction(description)
+
+# Enhanced predict_from_image function with fallback
+def predict_from_image(img, model=None, class_names=None):
+    """Predict waste type from image with fallback to color-based"""
+    if model is None or class_names is None:
+        # Fallback to color-based prediction
+        logger.info("Image model not available, using color-based prediction")
+        return simple_image_prediction(img)
+        
+    try:
+        # Ensure TensorFlow is imported
+        import tensorflow as tf
+        from tensorflow.keras.preprocessing import image as keras_image
+        
+        # Preprocess image
+        img = img.resize((224, 224))
+        img_array = keras_image.img_to_array(img)
+        img_array = np.expand_dims(img_array, axis=0)
+        img_array = img_array / 255.0
+        
+        # Make prediction
+        predictions = model.predict(img_array)
+        class_idx = np.argmax(predictions[0])
+        confidence = float(np.max(predictions[0]))
+        
+        # Get class name
+        if class_idx < len(class_names):
+            category = class_names[class_idx]
+            return category, confidence
+        else:
+            logger.error(f"Invalid class index: {class_idx}, max expected: {len(class_names)-1}")
+            return simple_image_prediction(img)
+            
+    except Exception as e:
+        logger.error(f"Error in image prediction: {str(e)}")
+        return simple_image_prediction(img)
 
 # Function to convert waste type selected in UI to API format
 def convert_waste_type_to_api(ui_waste_type):
@@ -272,89 +414,226 @@ with tab1:
 
 with tab2:
     st.header("Identify your waste")
-
-    # Load text model
-    @st.cache_resource
-    def load_text_model():
-        try:
-            with open('waste_classifier.pkl', 'rb') as f:
-                model = pickle.load(f)
-            with open('waste_vectorizer.pkl', 'rb') as f:
-                vectorizer = pickle.load(f)
-            with open('waste_encoder.pkl', 'rb') as f:
-                encoder = pickle.load(f)
-            return model, vectorizer, encoder
-        except FileNotFoundError:
-            return None, None, None
-
-    # Load fine-tuned image model
-    @st.cache_resource
-    def load_image_model():
-        try:
-            from tensorflow.keras.models import load_model
-            return load_model("waste_image_classifier.h5")
-        except Exception as e:
-            logger.warning(f"Could not load image model: {e}")
-            return None
-
-    def predict_from_text(description, model, vectorizer, encoder):
-        description = description.lower()
-        X_new = vectorizer.transform([description])
-        prediction = model.predict(X_new)[0]
-        probabilities = model.predict_proba(X_new)[0]
-        confidence = probabilities[prediction]
-        category = encoder.inverse_transform([prediction])[0]
-        return category, confidence
-
-    def predict_from_image(img, model, class_names):
-        try:
-            from tensorflow.keras.preprocessing import image as keras_image
-
-            img = img.resize((224, 224))
-            img_array = keras_image.img_to_array(img)
-            img_array = np.expand_dims(img_array, axis=0)
-            img_array = img_array / 255.0
-
-            predictions = model.predict(img_array)
-            predicted_class = class_names[np.argmax(predictions)]
-            confidence = np.max(predictions)
-
-            return predicted_class, confidence
-        except Exception as e:
-            logger.error(f"Error in image prediction: {e}")
-            st.error(f"Error analyzing image: {e}")
-            return None, 0.0
-
-    # Load models
+    
+    # Check if ML models are available and load them once
     text_model, text_vectorizer, text_encoder = load_text_model()
     image_model = load_image_model()
+    
+    # Define consistent class names exactly matching training data
     image_class_names = [
-        "Household waste 🗑", "Paper 📄", "Cardboard 📦", "Glass 🍾", "Green waste 🌿", 
-        "Cans 🥫", "Aluminium 🧴", "Foam packaging ☁", "Metal 🪙", "Textiles 👕", 
-        "Oil 🛢", "Hazardous waste ⚠"
+        "Household waste 🗑", 
+        "Paper 📄", 
+        "Cardboard 📦", 
+        "Glass 🍾", 
+        "Green waste 🌿", 
+        "Cans 🥫", 
+        "Aluminium 🧴", 
+        "Foam packaging ☁", 
+        "Metal 🪙", 
+        "Textiles 👕", 
+        "Oil 🛢", 
+        "Hazardous waste ⚠"
     ]
-
+    
+    # Show model status
+    col1, col2 = st.columns(2)
+    with col1:
+        if text_model is not None:
+            st.success("✅ Text analysis available")
+        else:
+            st.warning("⚠️ Text analysis: Using rule-based fallback")
+            
+    with col2:
+        if image_model is not None:
+            st.success("✅ Image analysis available")
+        else:
+            st.warning("⚠️ Image analysis: Using color-based fallback")
+            
     # Input from user
     waste_description = st.text_area("Describe your waste (material, size, usage, etc.)")
     uploaded_file = st.file_uploader("Or upload a photo of your waste", type=["jpg", "jpeg", "png"])
-
+    
+    # Display uploaded image
     if uploaded_file is not None:
-        image = Image.open(uploaded_file)
-        st.image(image, caption="Uploaded image", width=300)
-
+        try:
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Uploaded image", width=300)
+        except Exception as e:
+            st.error(f"Error opening image: {e}")
+            image = None
+    else:
+        image = None
+    
+    # Analyze button
     if st.button("Identify"):
-        if waste_description or uploaded_file:
+        if waste_description or (uploaded_file and image is not None):
             with st.spinner("Analyzing your waste..."):
-
-                if waste_description and text_model:
-                    category, confidence = predict_from_text(waste_description, text_model, text_vectorizer, text_encoder)
-                    st.success(f"Text analysis result: {category} (confidence: {confidence:.2%})")
-
-                elif uploaded_file and image_model:
-                    category, confidence = predict_from_image(image, image_model, image_class_names)
+                
+                results = []
+                
+                # Text analysis
+                if waste_description:
+                    category, confidence = predict_from_text(
+                        waste_description, 
+                        model=text_model, 
+                        vectorizer=text_vectorizer, 
+                        encoder=text_encoder
+                    )
                     if category:
+                        results.append((category, confidence, "text"))
+                        st.success(f"Text analysis result: {category} (confidence: {confidence:.2%})")
+                
+                # Image analysis
+                if uploaded_file and image is not None:
+                    category, confidence = predict_from_image(
+                        image, 
+                        model=image_model, 
+                        class_names=image_class_names
+                    )
+                    if category:
+                        results.append((category, confidence, "image"))
                         st.success(f"Image analysis result: {category} (confidence: {confidence:.2%})")
-
+                
+                # Show the most confident result or combine results
+                if len(results) > 1:
+                    # Take the result with highest confidence
+                    final_result = max(results, key=lambda x: x[1])
+                    category, confidence, method = final_result
+                    st.info(f"Final recommendation: {category} (based on {method} analysis)")
+                elif len(results) == 1:
+                    category = results[0][0]
+                else:
+                    st.error("Analysis failed. Please try again.")
+                    category = None
+                    
+                # Show sorting advice if we have a category
+                if category:
+                    # Show sorting advice for the predicted category
+                    st.subheader("Waste sorting advice")
+                    
+                    # Extract the base category without emoji
+                    base_category = category.split(" ")[0] if " " in category else category
+                    
+                    sorting_advice = {
+                        "Household": {
+                            "bin": "General waste bin (gray/black)",
+                            "tips": [
+                                "Ensure waste is properly bagged",
+                                "Remove any recyclable components first",
+                                "Compact waste to save space"
+                            ]
+                        },
+                        "Paper": {
+                            "bin": "Paper recycling (blue)",
+                            "tips": [
+                                "Remove any plastic components or covers",
+                                "Flatten to save space",
+                                "Keep dry and clean"
+                            ]
+                        },
+                        "Cardboard": {
+                            "bin": "Cardboard recycling (blue/brown)",
+                            "tips": [
+                                "Break down boxes to save space",
+                                "Remove tape and plastic parts",
+                                "Keep dry and clean"
+                            ]
+                        },
+                        "Glass": {
+                            "bin": "Glass container (green/clear/brown)",
+                            "tips": [
+                                "Separate by color if required",
+                                "Remove caps and lids",
+                                "Rinse containers before disposal"
+                            ]
+                        },
+                        "Green": {
+                            "bin": "Organic waste (green/brown)",
+                            "tips": [
+                                "No meat or cooked food in some systems",
+                                "No plastic bags, even biodegradable ones",
+                                "Cut large branches into smaller pieces"
+                            ]
+                        },
+                        "Cans": {
+                            "bin": "Metal recycling",
+                            "tips": [
+                                "Rinse containers before recycling",
+                                "Crush if possible to save space",
+                                "Labels can typically stay on"
+                            ]
+                        },
+                        "Aluminium": {
+                            "bin": "Metal recycling",
+                            "tips": [
+                                "Clean off food residue",
+                                "Can be crushed to save space",
+                                "Collect smaller pieces together"
+                            ]
+                        },
+                        "Metal": {
+                            "bin": "Metal recycling or collection point",
+                            "tips": [
+                                "Larger items may need special disposal",
+                                "Remove non-metal components if possible",
+                                "Take to recycling center if too large"
+                            ]
+                        },
+                        "Textiles": {
+                            "bin": "Textile collection bins",
+                            "tips": [
+                                "Clean and dry items only",
+                                "Pair shoes together",
+                                "Separate for donation vs. recycling"
+                            ]
+                        },
+                        "Oil": {
+                            "bin": "Special collection point",
+                            "tips": [
+                                "Never pour down the drain",
+                                "Keep in original container if possible",
+                                "Take to recycling center or garage"
+                            ]
+                        },
+                        "Hazardous": {
+                            "bin": "Hazardous waste collection",
+                            "tips": [
+                                "Keep in original container if possible",
+                                "Never mix different chemicals",
+                                "Take to special collection points"
+                            ]
+                        },
+                        "Foam": {
+                            "bin": "Special recycling or general waste",
+                            "tips": [
+                                "Check local rules as they vary widely",
+                                "Some recycling centers accept clean foam",
+                                "Break into smaller pieces"
+                            ]
+                        }
+                    }
+                    
+                    # Find matching advice
+                    for key, advice in sorting_advice.items():
+                        if key in base_category:
+                            st.write(f"**Disposal bin:** {advice['bin']}")
+                            st.write("**Tips:**")
+                            for tip in advice['tips']:
+                                st.write(f"- {tip}")
+                            break
+                    else:
+                        # Default advice if no match
+                        st.write("Please check your local waste management guidelines for this specific item.")
+                    
+                    # Offer to search for collection points
+                    st.markdown("---")
+                    if st.button("Find collection points for this waste type"):
+                        # Store waste type in session state
+                        if "session_state" not in st.session_state:
+                            st.session_state["waste_type"] = category
+                            st.session_state["active_tab"] = 0  # Find a collection point tab
+                        st.experimental_rerun()
+        
         else:
             st.error("Please describe your waste or upload an image")
 
@@ -379,15 +658,15 @@ with tab3:
     if check_ml_models_available():
         st.success("✅ Text Classification Model: Available")
     else:
-        st.error("❌ Text Classification Model: Not found")
+        st.warning("⚠️ Text Classification Model: Not found (using rule-based fallback)")
     
     if os.path.exists("waste_image_classifier.h5"):
         if check_tensorflow_available():
             st.success("✅ Image Classification Model: Available")
         else:
-            st.warning("⚠️ Image Classification Model: File exists but TensorFlow not installed")
+            st.warning("⚠️ Image Classification Model: File exists but TensorFlow not installed (using color-based fallback)")
     else:
-        st.error("❌ Image Classification Model: Not found")
+        st.warning("⚠️ Image Classification Model: Not found (using color-based fallback)")
     
     # Project description
     st.markdown("""
