@@ -8,6 +8,8 @@ import pickle
 from datetime import datetime
 import os
 import sys
+from streamlit_folium import folium_static
+import folium
 
 # Configure error handling and logging
 import logging
@@ -20,14 +22,16 @@ try:
     from location_api import (
         get_coordinates,
         find_collection_points,
-        fetch_collection_dates, # Corrected import: fetch_collection_dates
-        get_next_collection_date, # Corrected import: get_next_collection_date
+        fetch_collection_dates,
+        get_next_collection_date,
         format_collection_points,
         get_available_waste_types,
         translate_waste_type,
-        fetch_collection_points, # Import fetch_collection_points
+        fetch_collection_points,
         COLLECTION_POINTS_ENDPOINT,
-        COLLECTION_DATES_ENDPOINT  
+        COLLECTION_DATES_ENDPOINT,
+        handle_waste_disposal,
+        create_interactive_map  # Add the new function here
     )
     logger.info(f"Successfully imported location_api functions")
     logger.info(f"Collection Points API: {COLLECTION_POINTS_ENDPOINT}")
@@ -338,111 +342,67 @@ with tab1:
         if not user_address:
             st.warning("Please enter your address.")
         elif not selected_waste_type_english:
-             st.warning("Please select a waste type.")
+            st.warning("Please select a waste type.")
         else:
             # Translate selected waste type back to German for API calls
             selected_waste_type_german = waste_type_mapping.get(selected_waste_type_english, selected_waste_type_english)
 
             st.info(f"Searching for collection points and dates for '{selected_waste_type_english}' near '{user_address}'...")
 
-            # 1. Get user coordinates
-            user_coords = get_coordinates(user_address)
-
-            if user_coords:
-                user_lat = user_coords["lat"]
-                user_lon = user_coords["lon"]
-
-                # Display user location on a temporary map (optional, for confirmation)
-                # st.subheader("Your Location")
-                # user_map_data = pd.DataFrame({'lat': [user_lat], 'lon': [user_lon]})
-                # st.map(user_map_data, zoom=12)
-
-                # 2. Fetch all collection points data
-                all_collection_points_data = fetch_collection_points()
-
-                if all_collection_points_data:
-                    # 3. Find suitable collection points near the user
-                    suitable_points = find_collection_points(user_lat, user_lon, selected_waste_type_german, all_collection_points_data)
-
-                    if suitable_points:
-                        st.subheader(f"Nearest Collection Points for {selected_waste_type_english}")
-
-                        # Format data for map and display
-                        map_data, display_points = format_collection_points(suitable_points)
-
-                        # Add user location to the map data for context
-                        user_location_df = pd.DataFrame({'lat': [user_lat], 'lon': [user_lon], 'name': ['Your Location']})
-                        map_data_with_user = pd.concat([user_location_df, map_data], ignore_index=True)
-
-                        # Display map centered around the user or the first suitable point
-                        if not map_data.empty:
-                             # Determine center for the map - can be user or average of points
-                             center_lat = user_lat # Center on user for now
-                             center_lon = user_lon # Center on user for now
-                             st.map(map_data_with_user, zoom=12) # Adjust zoom level as needed
-                        else:
-                             # If no suitable points, just show user location
-                             st.map(user_location_df, zoom=12)
-
-
-                        # Display detailed list of nearest points
-                        st.write("Details of nearest points (sorted by distance):")
-                        for i, point in enumerate(display_points):
-                            # Display up to a certain number of points, e.g., 5
-                            if i >= 5:
-                                break
-                            st.markdown(f"**{point['name']}**")
-                            st.markdown(f"Distance: {point['distance']:.2f} km")
-                            st.markdown(f"Accepted Waste Types: {', '.join([translate_waste_type(wt) for wt in point['waste_types']])}")
-                            if point['opening_hours'] and point['opening_hours'] != "N/A":
-                                 st.markdown(f"Opening Hours: {point['opening_hours']}")
-                            st.markdown("---")
-
-                    else:
-                        st.warning(f"No collection points found for '{selected_waste_type_english}' that accept this waste type near your location.")
-                else:
-                    st.error("Could not fetch collection points data from the API.")
-
-                # 4. Fetch all collection dates data
-                all_collection_dates_data = fetch_collection_dates() # Corrected function call
-
-                if all_collection_dates_data:
-                     # 5. Get the next collection date for the user's street and waste type
-                     # We need to extract the street name from the user's address
-                     # This is a simple approach; more robust parsing might be needed
-                     street_part = user_address.split(',')[0].strip() # Take part before first comma
-
-                     next_collection = get_next_collection_date(street_part, selected_waste_type_german, all_collection_dates_data) # Corrected function call
-
-                     st.subheader(f"Next Collection Date for {selected_waste_type_english} on your Street")
-
-                     if next_collection:
-                         st.success(f"The next collection for {selected_waste_type_english} is on:")
-                         st.markdown(f"- **Date:** {next_collection['date'].strftime('%Y-%m-%d')}")
-                         if next_collection['time'] and next_collection['time'] != "N/A":
-                             st.markdown(f"- **Time:** {next_collection['time']}")
-                         if next_collection['description'] and next_collection['description'] != "Collection":
-                              st.markdown(f"- **Description:** {next_collection['description']}")
-                         if next_collection['area'] and next_collection['area'] != "N/A":
-                              st.markdown(f"- **Area:** {next_collection['area']}")
-
-                     else:
-                         st.info(f"No upcoming collection dates found for '{selected_waste_type_english}' on a street matching '{street_part}'. Please check the official schedule or try a different street name variation.")
-                else:
-                     st.error("Could not fetch collection dates data from the API.")
-
-
-            else:
-                st.error("Could not get coordinates for the provided address. Please check the address and try again.")
-
+            # Use the combined function for waste disposal information
+            waste_info = handle_waste_disposal(user_address, selected_waste_type_german)
+            
+            # Display the message
+            st.markdown(f"### Results")
+            st.markdown(waste_info["message"])
+            
+            # Display collection points if available
+            if waste_info["has_disposal_locations"]:
+                st.subheader(f"Nearest Collection Points for {selected_waste_type_english}")
+                
+                # Get user coordinates for the map
+                user_coords = get_coordinates(user_address)
+                
+                # Create and display the interactive map
+                if user_coords:
+                    st.write("Interactive map: hover over markers for quick info, click for details.")
+                    interactive_map = create_interactive_map(user_coords, waste_info["collection_points"])
+                    folium_static(interactive_map)
+                
+                # Display detailed list of nearest points
+                st.write("Details of nearest points (sorted by distance):")
+                for i, point in enumerate(waste_info["collection_points"]):
+                    # Display up to a certain number of points, e.g., 5
+                    if i >= 5:
+                        break
+                    st.markdown(f"**{i+1}. {point['name']}**")
+                    st.markdown(f"Distance: {point['distance']:.2f} km")
+                    st.markdown(f"Accepted Waste Types: {', '.join([translate_waste_type(wt) for wt in point['waste_types']])}")
+                    if point['opening_hours'] and point['opening_hours'] != "N/A":
+                        st.markdown(f"Opening Hours: {point['opening_hours']}")
+                    st.markdown("---")
+            
+            # Display collection date if available
+            if waste_info["has_scheduled_collection"]:
+                st.subheader(f"Next Collection Date for {selected_waste_type_english}")
+                next_collection = waste_info["next_collection_date"]
+                
+                st.success(f"The next collection for {selected_waste_type_english} is on:")
+                st.markdown(f"- **Date:** {next_collection['date'].strftime('%A, %B %d, %Y')}")
+                if next_collection['time'] and next_collection['time'] != "N/A":
+                    st.markdown(f"- **Time:** {next_collection['time']}")
+                if next_collection['description'] and next_collection['description'] != "Collection":
+                    st.markdown(f"- **Description:** {next_collection['description']}")
+                if next_collection['area'] and next_collection['area'] != "N/A":
+                    st.markdown(f"- **Area:** {next_collection['area']}")
 
     # Separator
     st.markdown("---")
 
-    # --- General Information Section (from original app.py snippet) ---
+    # --- General Information Section ---
     st.header("General Waste Information")
 
-    # Tip of the day (keeping the existing logic)
+    # Tip of the day
     st.subheader("Tip of the Day")
     tips_of_the_day = [
         "Recycling one aluminum can saves enough energy to run a TV for three hours.",
@@ -464,16 +424,31 @@ with tab1:
     # St. Gallen collection points map (General Map)
     st.subheader("General Collection Points Map (St. Gallen)")
 
-    # Display a small map centered on St. Gallen
-    st_gallen_map = pd.DataFrame({
-        'lat': [47.4245],
-        'lon': [9.3767]
-    })
-    st.map(st_gallen_map, zoom=12) # Added zoom level
+    # Create and display a general map of St. Gallen using Folium
+    general_map = folium.Map(
+        location=[47.4245, 9.3767],  # Center of St. Gallen
+        zoom_start=13,
+        tiles="CartoDB positron",  # A cleaner map style
+    )
+    
+    # Add bounds to restrict to St. Gallen area
+    sw = [47.3745, 9.3167]  # Southwest corner
+    ne = [47.4745, 9.4367]  # Northeast corner
+    general_map.fit_bounds([sw, ne])
+    
+    # Add a welcome marker
+    folium.Marker(
+        location=[47.4245, 9.3767],
+        popup="St. Gallen City Center",
+        tooltip="St. Gallen",
+        icon=folium.Icon(color="green", icon="info-sign", prefix="fa")
+    ).add_to(general_map)
+    
+    # Display the interactive map
+    folium_static(general_map)
 
     # Separator
     st.markdown("---")
-
     # Useful links (keeping the existing links, replace example.com with actual links if available)
     st.subheader("Useful links")
     st.markdown("[Complete recycling guide](https://www.stadt.sg.ch/home/umwelt-energie/entsorgung.html)") # Example link
