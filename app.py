@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 try:
     from location_api import (
         get_coordinates,
+        handle_waste_disposal,
         find_collection_points,
         fetch_collection_dates, # Corrected import: fetch_collection_dates
         get_next_collection_date, # Corrected import: get_next_collection_date
