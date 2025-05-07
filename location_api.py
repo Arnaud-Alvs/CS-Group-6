@@ -32,102 +32,90 @@ COLLECTION_DATES_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/a
 def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dict[str, float]]:
     """
     Get latitude and longitude from address using OpenStreetMap Nominatim API.
-    Explicitly restricts results to St. Gallen city area.
+    Strictly enforces results within St. Gallen city boundaries.
     """
     try:
         import time
         # Add a small delay to avoid hitting rate limits
-        time.sleep(1)  
+        time.sleep(1)
+        
+        # Define St. Gallen city boundaries (bounding box)
+        ST_GALLEN_BOUNDS = {
+            "min_lat": 47.3600,  # South boundary
+            "max_lat": 47.4800,  # North boundary
+            "min_lon": 9.3000,   # West boundary
+            "max_lon": 9.4500    # East boundary
+        }
         
         base_url = "https://nominatim.openstreetmap.org/search"
 
-        # --- Address Cleaning ---
-        cleaned_address = address
-        cleaned_address = re.sub(r'\b\d{4}\b', '', cleaned_address, flags=re.IGNORECASE).strip()
-        
-        patterns_to_remove_city_country = [
-            r'\bSt\.\s*Gallen\b',
-            r'\bStGallen\b',
-            r'\bSt\. Gallen\b',
-            r'\bSwitzerland\b',
-            r'\bSchweiz\b',
-        ]
-
-        for pattern in patterns_to_remove_city_country:
-             cleaned_address = re.sub(pattern, '', cleaned_address, flags=re.IGNORECASE).strip()
-
-        cleaned_address = re.sub(r'^\s*[,;:\s]+|[,\s]+$', '', cleaned_address).strip()
-        cleaned_address = re.sub(r'\s+', ' ', cleaned_address).strip()
-
-        address_for_query = cleaned_address
-
-        if not address_for_query:
-             st.warning("Please enter a valid street name and number.")
-             logger.warning(f"Empty address string after cleaning: {address}")
-             return None
-
-        # Use structured search for more precise results
+        # Add "St. Gallen" to the address if not already present
+        if "st. gallen" not in address.lower() and "st.gallen" not in address.lower().replace(" ", ""):
+            search_address = f"{address}, St. Gallen, Switzerland"
+        else:
+            search_address = address
+            
+        # Use q parameter with full address including city
         params = {
-            "street": address_for_query,
-            "city": "St. Gallen",
-            "country": "Switzerland",
+            "q": search_address,
             "format": "json",
-            "limit": 1,
-            "addressdetails": 1,
-            # Add a bounding box for St. Gallen city area to restrict results
-            "viewbox": "9.3167,47.3745,9.4367,47.4745",  # min lon, min lat, max lon, max lat
-            "bounded": 1  # Restrict to the viewbox
+            "limit": 5,  # Get multiple results to find one in St. Gallen
+            "addressdetails": 1
         }
 
         # Nominatim REQUIRES a unique user agent identifying your application
         headers = {
             "User-Agent": "WasteWise-StGallen-App/1.0 (university.project@example.com)",
-            "Accept-Language": "de,en"  # Add German as preferred language
+            "Accept-Language": "de,en"
         }
 
-        logger.info(f"Attempting to get coordinates for address: '{address}', using structured query with params: {params}")
+        logger.info(f"Searching for coordinates for: '{search_address}'")
         response = requests.get(base_url, params=params, headers=headers, timeout=30)
-
-        # Raise an HTTPError for bad responses (4xx or 5xx)
         response.raise_for_status()
 
         data = response.json()
-
-        if data and len(data) > 0:
-            # Verify the result is actually in St. Gallen
-            if "address" in data[0] and data[0]["address"].get("city", "").lower() == "st. gallen":
-                logger.info(f"Successfully retrieved coordinates for {address}: {data[0]['lat']}, {data[0]['lon']}")
-                return {"lat": float(data[0]["lat"]), "lon": float(data[0]["lon"])}
-            else:
-                # Check if it's in another part of St. Gallen (might be a district)
-                found_in_st_gallen = False
-                address_parts = data[0].get("address", {})
-                
-                # Check various address fields for "St. Gallen" or similar
-                for field in ["city", "town", "village", "municipality", "county"]:
-                    if field in address_parts and "gallen" in address_parts[field].lower():
-                        found_in_st_gallen = True
-                        break
-                
-                if found_in_st_gallen:
-                    logger.info(f"Found address in St. Gallen area: {address}: {data[0]['lat']}, {data[0]['lon']}")
-                    return {"lat": float(data[0]["lat"]), "lon": float(data[0]["lon"])}
-                else:
-                    st.warning(f"Found an address matching '{address}' but it appears to be outside St. Gallen. Please be more specific.")
-                    logger.warning(f"Found address outside St. Gallen: {data[0]}")
-                    return None
-        else:
+        
+        # If no results found
+        if not data:
             st.warning(f"Could not find coordinates for address: {address}. Please try a more specific address.")
-            logger.warning(f"Nominatim found no results for address: {address}")
+            logger.warning(f"No results found for address: {search_address}")
             return None
+            
+        # Check each result to find one within St. Gallen boundaries
+        for result in data:
+            try:
+                lat = float(result["lat"])
+                lon = float(result["lon"])
+                
+                # Check if coordinates are within St. Gallen boundaries
+                if (ST_GALLEN_BOUNDS["min_lat"] <= lat <= ST_GALLEN_BOUNDS["max_lat"] and 
+                    ST_GALLEN_BOUNDS["min_lon"] <= lon <= ST_GALLEN_BOUNDS["max_lon"]):
+                    
+                    # Debug log to verify the coordinates look correct
+                    logger.info(f"Found address in St. Gallen bounds: {result.get('display_name')} at {lat}, {lon}")
+                    
+                    # Double-check if address contains any St. Gallen reference
+                    display_name = result.get('display_name', '').lower()
+                    address_parts = result.get('address', {})
+                    
+                    # Check if any address part mentions St. Gallen
+                    st_gallen_mentioned = any("gallen" in str(value).lower() 
+                                             for key, value in address_parts.items())
+                    
+                    if "gallen" in display_name or st_gallen_mentioned:
+                        return {"lat": lat, "lon": lon}
+            except (ValueError, KeyError) as e:
+                logger.warning(f"Error processing result: {e}")
+                continue
+                
+        # If we got here, we didn't find a suitable location in St. Gallen
+        st.warning("The address was found, but appears to be outside St. Gallen city. This app is for St. Gallen addresses only.")
+        logger.warning(f"No results within St. Gallen boundaries for: {search_address}")
+        return None
 
     except requests.exceptions.RequestException as e:
         st.error(f"Error fetching coordinates for {address}: {str(e)}. Please check the address format.")
         logger.error(f"Request error for address {address}: {str(e)}")
-        return None
-    except ValueError as e:
-        st.error(f"Error parsing coordinate data for {address}: {str(e)}")
-        logger.error(f"Value error for address {address}: {str(e)}")
         return None
     except Exception as e:
         st.error(f"An unexpected error occurred while getting coordinates for {address}: {str(e)}")
