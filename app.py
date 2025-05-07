@@ -329,25 +329,25 @@ with tab1:
     # Button to trigger the search
  # In app.py where you handle the "Find Information" button click and display results:
 
-with st.form(key="waste_search_form"):
-        # Move your input fields here
-        selected_waste_type_english = st.selectbox(
-            "Select Waste Type:",
-            options=available_waste_types_english,
-            help="Choose the type of waste you want to dispose of."
-        )
+    with st.form(key="waste_search_form"):
+           # Move your input fields here
+            selected_waste_type_english = st.selectbox(
+                "Select Waste Type:",
+                options=available_waste_types_english,
+                help="Choose the type of waste you want to dispose of."
+            )
 
-        user_address = st.text_input(
-            "Enter your Address in St. Gallen:",
-            placeholder="e.g., Musterstrasse 1",
-            help="Enter your address, it must include a street name and number."
-        )
+            user_address = st.text_input(
+                "Enter your Address in St. Gallen:",
+                placeholder="e.g., Musterstrasse 1",
+                help="Enter your address, it must include a street name and number."
+            )
         
-        # Form submit button
-        submit_button = st.form_submit_button("Find Information")
+            # Form submit button
+            submit_button = st.form_submit_button("Find Information")
     
     # Process form submission
-if submit_button:
+    if submit_button:
         if not user_address:
             st.warning("Please enter your address.")
         elif not selected_waste_type_english:
@@ -370,7 +370,7 @@ if submit_button:
                 st.session_state.show_results = True
     
     # Display results section - only if we have data
-if 'show_results' in st.session_state and st.session_state.show_results:
+    if 'show_results' in st.session_state and st.session_state.show_results:
         # Clear separation from the input form
         st.markdown("---")
         
@@ -445,14 +445,14 @@ if 'show_results' in st.session_state and st.session_state.show_results:
                 st.session_state.show_results = False
                 st.experimental_rerun()
     # Separator
-st.markdown("---")
+    st.markdown("---")
 
     # --- General Information Section ---
-st.header("General Waste Information")
+    st.header("General Waste Information")
 
     # Tip of the day
-st.subheader("Tip of the Day")
-tips_of_the_day = [
+    st.subheader("Tip of the Day")
+    tips_of_the_day = [
         "Recycling one aluminum can saves enough energy to run a TV for three hours.",
         "Paper can be recycled up to 7 times before the fibers become too short.",
         "Glass is 100% recyclable and can be recycled infinitely without losing its quality!",
@@ -463,17 +463,17 @@ tips_of_the_day = [
         "Remember to break down cardboard packaging before disposing of it to save space.",
         "LED bulbs are less harmful to the environment and last longer."
     ]
-import random
-st.info(random.choice(tips_of_the_day))
+    import random
+    st.info(random.choice(tips_of_the_day))
   
     # Separator
-st.markdown("---")
+    st.markdown("---")
     # Useful links (keeping the existing links, replace example.com with actual links if available)
-st.subheader("Useful links")
-st.markdown("[Complete recycling guide](https://www.stadt.sg.ch/home/umwelt-energie/entsorgung.html)") # Example link
-st.markdown("[Reducing waste in everyday life](https://www.bafu.admin.ch/bafu/en/home/topics/waste/guide-to-waste-a-z/avoiding-waste.html)") # Example link
-st.markdown("[Waste legislation in Switzerland](https://www.bafu.admin.ch/bafu/en/home/topics/waste/legal-basis.html)") # Example link
-st.markdown("[Official St. Gallen city website](https://www.stadt.sg.ch/)")
+    st.subheader("Useful links")
+    st.markdown("[Complete recycling guide](https://www.stadt.sg.ch/home/umwelt-energie/entsorgung.html)") # Example link
+    st.markdown("[Reducing waste in everyday life](https://www.bafu.admin.ch/bafu/en/home/topics/waste/guide-to-waste-a-z/avoiding-waste.html)") # Example link
+    st.markdown("[Waste legislation in Switzerland](https://www.bafu.admin.ch/bafu/en/home/topics/waste/legal-basis.html)") # Example link
+    st.markdown("[Official St. Gallen city website](https://www.stadt.sg.ch/)")
 
 with tab2:
     st.header("Identify your waste")
