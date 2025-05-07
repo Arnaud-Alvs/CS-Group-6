@@ -8,7 +8,7 @@ import pickle
 from datetime import datetime
 import os
 import sys
-from streamlit_folium import folium_static
+from streamlit_folium import st_folium
 import folium
 
 # Configure error handling and logging
@@ -333,8 +333,8 @@ with tab1:
 
     user_address = st.text_input(
         "Enter your Address in St. Gallen:",
-        placeholder="e.g., Musterstrasse 1, St. Gallen",
-        help="Enter your full address, including street name and number."
+        placeholder="e.g., Musterstrasse 1",
+        help="Enter your address, it must include a street name and number."
     )
 
     # Button to trigger the search
@@ -417,36 +417,7 @@ with tab1:
     ]
     import random
     st.info(random.choice(tips_of_the_day))
-
-    # Separator
-    st.markdown("---")
-
-    # St. Gallen collection points map (General Map)
-    st.subheader("General Collection Points Map (St. Gallen)")
-
-    # Create and display a general map of St. Gallen using Folium
-    general_map = folium.Map(
-        location=[47.4245, 9.3767],  # Center of St. Gallen
-        zoom_start=13,
-        tiles="CartoDB positron",  # A cleaner map style
-    )
-    
-    # Add bounds to restrict to St. Gallen area
-    sw = [47.3745, 9.3167]  # Southwest corner
-    ne = [47.4745, 9.4367]  # Northeast corner
-    general_map.fit_bounds([sw, ne])
-    
-    # Add a welcome marker
-    folium.Marker(
-        location=[47.4245, 9.3767],
-        popup="St. Gallen City Center",
-        tooltip="St. Gallen",
-        icon=folium.Icon(color="green", icon="info-sign", prefix="fa")
-    ).add_to(general_map)
-    
-    # Display the interactive map
-    folium_static(general_map)
-
+  
     # Separator
     st.markdown("---")
     # Useful links (keeping the existing links, replace example.com with actual links if available)

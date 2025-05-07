@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from math import radians, sin, cos, sqrt, atan2
 import re # Import regex module
 import folium
-from streamlit_folium import folium_static
+from streamlit_folium import st_folium
 
 # Configure logging for this module
 import logging
@@ -168,21 +168,25 @@ def create_interactive_map(user_coords: Dict[str, float], collection_points: Lis
     else:
         center = st_gallen_center
     
-    # Create the base map
+    # Create the base map with a cleaner style
     m = folium.Map(
         location=center,
         zoom_start=14,
-        tiles="CartoDB positron",  # A cleaner, more modern map style
-        max_bounds=True,  # Restrict panning to the bounds
+        tiles="CartoDB positron",
+        max_bounds=True,  # Enable bounds restriction
     )
     
-    # Set bounds to restrict to St. Gallen area
-    # These are approximate coordinates that define the St. Gallen city area
+    # Define St. Gallen city boundaries more precisely
     sw = [47.3745, 9.3167]  # Southwest corner
     ne = [47.4745, 9.4367]  # Northeast corner
+    
+    # Set bounds to restrict to St. Gallen area
     m.fit_bounds([sw, ne])
     
-    # Add user marker
+    # Add a tighter max bounds to prevent users from panning too far
+    m.options['maxBounds'] = [[47.3600, 9.3000], [47.4800, 9.4500]]
+    
+    # Add user marker with a nicer icon
     if user_coords:
         folium.Marker(
             location=[user_coords["lat"], user_coords["lon"]],
@@ -191,19 +195,19 @@ def create_interactive_map(user_coords: Dict[str, float], collection_points: Lis
             icon=folium.Icon(color="blue", icon="home", prefix="fa")
         ).add_to(m)
     
-    # Add collection points markers
+    # Add collection points markers with improved styling
     for point in collection_points:
         # Create a nice tooltip with waste types
         waste_types_str = ", ".join([translate_waste_type(wt) for wt in point["waste_types"]])
         tooltip = f"{point['name']}<br>Accepts: {waste_types_str}"
         
-        # Create a popup with more detailed information
+        # Create a popup with more detailed information and better styling
         popup_html = f"""
-        <div style="width: 200px">
-            <h4>{point['name']}</h4>
-            <p><b>Distance:</b> {point['distance']:.2f} km</p>
-            <p><b>Accepts:</b> {waste_types_str}</p>
-            {f"<p><b>Opening Hours:</b> {point['opening_hours']}</p>" if point['opening_hours'] and point['opening_hours'] != "N/A" else ""}
+        <div style="width: 250px; padding: 10px;">
+            <h4 style="color: #2c7fb8; margin-top: 0;">{point['name']}</h4>
+            <p><strong>Distance:</strong> {point['distance']:.2f} km</p>
+            <p><strong>Accepts:</strong> {waste_types_str}</p>
+            {f"<p><strong>Opening Hours:</strong> {point['opening_hours']}</p>" if point['opening_hours'] and point['opening_hours'] != "N/A" else ""}
         </div>
         """
         
@@ -216,7 +220,6 @@ def create_interactive_map(user_coords: Dict[str, float], collection_points: Lis
         ).add_to(m)
     
     return m
-
 # Function to fetch collection points data from the API
 def fetch_collection_points() -> List[Dict[str, Any]]:
     """
