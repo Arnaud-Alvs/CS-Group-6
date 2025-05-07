@@ -246,57 +246,31 @@ def fetch_collection_points() -> List[Dict[str, Any]]:
 def fetch_collection_dates() -> List[Dict[str, Any]]:
     """
     Fetches waste collection dates data from the St. Gallen Open Data API.
-    Pre-filters to include only 2025 dates for better performance.
+    Focused on 2025 dates only with optimized parameters.
     """
     try:
-        all_results = []
-        base_url = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records"
+        # Use the exact URL structure that works with reasonable limits
+        url = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records"
         
-        # Start with page 0
-        offset = 0
-        limit = 100  # Number of records per page
+        params = {
+            "limit": 100,  # Back to 100 which worked
+            "offset": 0,
+            "refine": "datum:\"2025\""
+        }
         
-        logger.info(f"Starting to fetch collection dates from {base_url}")
+        logger.info(f"Fetching collection dates with filtered parameters")
         
-        while True:
-            # Configure parameters for this page, including the 2025 filter
-            params = {
-                "limit": limit,
-                "offset": offset,
-                "refine": "datum:\"2025\""  # Filter for 2025 dates only
-            }
-            
-            logger.info(f"Fetching page with offset {offset}, limit {limit}, filtered to 2025")
-            
-            # Make the request
-            response = requests.get(base_url, params=params, timeout=30)
-            response.raise_for_status()
-            
-            data = response.json()
-            page_results = data.get('results', [])
-            total_count = data.get('total_count', 0)
-            
-            if not page_results:
-                logger.info(f"No more results at offset {offset}")
-                break
-                
-            # Add this page's results to our collection
-            all_results.extend(page_results)
-            logger.info(f"Retrieved {len(page_results)} records, total so far: {len(all_results)}")
-            
-            # If we've got all the results, or if there are no more results, stop
-            if len(all_results) >= total_count or len(page_results) < limit:
-                logger.info(f"Finished fetching data, got {len(all_results)} of {total_count} total records")
-                break
-                
-            # Otherwise, move to the next page
-            offset += limit
+        response = requests.get(url, params=params, timeout=30)
+        response.raise_for_status()
         
-        if all_results:
-            logger.info(f"Successfully fetched {len(all_results)} collection dates for 2025.")
-            return all_results
+        data = response.json()
+        results = data.get('results', [])
+        
+        if results:
+            logger.info(f"Successfully fetched {len(results)} collection dates for 2025")
+            return results
         else:
-            logger.warning("API returned empty results despite successful connection.")
+            logger.warning("API returned empty results")
             return []
             
     except Exception as e:
