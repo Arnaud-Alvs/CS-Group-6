@@ -246,54 +246,104 @@ def fetch_collection_points() -> List[Dict[str, Any]]:
 def fetch_collection_dates() -> List[Dict[str, Any]]:
     """
     Fetches waste collection dates data from the St. Gallen Open Data API.
-    Ensures all records are retrieved.
+    Uses a progressive approach to diagnose and fix connection issues.
     """
+    # First, let's log the exact URL we're trying to access
+    base_url = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records"
+    logger.info(f"Attempting to connect to: {base_url}")
+    
+    # Try a simple request without parameters first
     try:
-        # Get as many records as possible
-        params = {"limit": 1000}  # Request a large number of records
+        # Set up a session with longer timeout and retries
+        session = requests.Session()
+        retries = requests.adapters.Retry(total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+        session.mount('https://', requests.adapters.HTTPAdapter(max_retries=retries))
         
-        base_endpoint = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records"
+        logger.info("Making request with no parameters")
+        response = session.get(base_url, timeout=45)
         
-        logger.info(f"Fetching collection dates from: {base_endpoint} with params: {params}")
+        # Check response status
+        logger.info(f"Response status code: {response.status_code}")
         
-        response = requests.get(base_endpoint, params=params, timeout=60)  # Longer timeout for more data
-        response.raise_for_status()
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                results = data.get('results', [])
+                logger.info(f"Successfully parsed response with {len(results)} results")
+                
+                if results:
+                    # Log the first result to understand the structure
+                    logger.info(f"First result structure: {json.dumps(results[0], default=str)[:500]}...")
+                    
+                    # Check if the results have the expected structure
+                    has_expected_fields = all(
+                        'sammlung' in item and 'strasse' in item and 'datum' in item
+                        for item in results[:3]
+                    )
+                    
+                    if has_expected_fields:
+                        logger.info("Results have the expected structure")
+                        return results
+                    else:
+                        logger.warning("Results don't have the expected structure")
+            except json.JSONDecodeError:
+                logger.error("Failed to parse response as JSON")
+                # Log the first part of the response to see what we got
+                logger.error(f"Response content (first 500 chars): {response.text[:500]}...")
+    
+        # If we're here, either the first attempt failed or returned unexpected data
+        # Try with specific parameters
+        params = {
+            "limit": 500,
+        }
         
-        data = response.json()
-        results = data.get('results', [])
+        logger.info(f"Making request with parameters: {params}")
+        response = session.get(base_url, params=params, timeout=45)
         
-        total_count = data.get('total_count', 0)
-        logger.info(f"API reports {total_count} total records available")
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                results = data.get('results', [])
+                
+                if results:
+                    logger.info(f"Successfully fetched {len(results)} collection dates with parameters")
+                    return results
+            except:
+                logger.error("Failed to parse second response as JSON")
+    
+        # If we get here, both attempts failed - try one more time with a simplified endpoint
+        simplified_url = f"{BASE_API_URL}/api/v2/catalog/datasets/abfuhrdaten-stadt-stgallen/records"
+        logger.info(f"Making request to simplified URL: {simplified_url}")
         
-        if results:
-            logger.info(f"Successfully fetched {len(results)} collection dates.")
-            
-            # Log some summary info to verify we have diverse data
-            waste_types = set(item.get('sammlung', '') for item in results)
-            logger.info(f"Found {len(waste_types)} different waste types: {waste_types}")
-            
-            # Sample some streets from the first few records
-            street_samples = []
-            for item in results[:5]:
-                streets = item.get('strasse', [])
-                if isinstance(streets, list) and len(streets) > 0:
-                    street_samples.extend(streets[:3])  # Add first 3 streets from each record
-            
-            logger.info(f"Sample streets from data: {street_samples}")
-            
-            return results
-        else:
-            logger.warning("API returned empty results despite successful connection.")
-            return []
-            
-    except requests.exceptions.RequestException as e:
-        error_message = str(e)
-        logger.error(f"Error fetching collection dates: {error_message}")
-        st.error("Unable to connect to the collection dates database. Please try again later.")
-        return []
+        response = session.get(simplified_url, timeout=45)
+        
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                results = data.get('results', [])
+                
+                if results:
+                    logger.info(f"Successfully fetched {len(results)} collection dates from simplified URL")
+                    return results
+            except:
+                logger.error("Failed to parse third response as JSON")
+    
+        # If all attempts fail, raise a detailed error
+        logger.error("All API attempts failed")
+        raise Exception("Could not retrieve collection dates from the API despite multiple attempts")
+        
     except Exception as e:
-        st.error(f"An unexpected error occurred while fetching collection dates: {str(e)}")
-        logger.error(f"Unexpected error fetching collection dates: {str(e)}")
+        # Log the detailed error
+        logger.error(f"Error fetching collection dates: {str(e)}")
+        
+        # Show a more informative error message to the user
+        st.error(
+            "We're experiencing difficulties connecting to the collection dates database. "
+            "This might be due to temporary API restrictions or network issues. "
+            "Please try again later."
+        )
+        
+        # Return an empty list, but the UI will explain why
         return []
 # Function to find nearest collection points for a given waste type and user location
 def find_collection_points(user_lat: float, user_lon: float, waste_type: str, all_points: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -602,3 +652,19 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
 
 # Note: The original code included endpoints as constants at the top.
 # We will keep them there for consistency.
+def check_api_status():
+    """
+    Checks the status of the St. Gallen Open Data API.
+    """
+    try:
+        # Try a simple request to the base API URL
+        response = requests.get(BASE_API_URL, timeout=10)
+        if response.status_code == 200:
+            logger.info("Base API URL is accessible")
+            return True
+        else:
+            logger.warning(f"Base API URL returned status code {response.status_code}")
+            return False
+    except Exception as e:
+        logger.error(f"Could not access base API URL: {str(e)}")
+        return False
