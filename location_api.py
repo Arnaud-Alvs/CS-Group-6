@@ -243,6 +243,7 @@ def fetch_collection_points() -> List[Dict[str, Any]]:
 
 
 # Function to fetch collection dates data from the API
+@st.cache_data(ttl=3600)
 def fetch_collection_dates() -> List[Dict[str, Any]]:
     """
     Fetches waste collection dates data from the St. Gallen Open Data API.
@@ -254,7 +255,7 @@ def fetch_collection_dates() -> List[Dict[str, Any]]:
         
         # Start with page 0
         offset = 0
-        limit = 100  # Number of records per page
+        limit = 500  # Number of records per page
         
         logger.info(f"Starting to fetch collection dates from {base_url}")
         
@@ -349,33 +350,18 @@ def find_collection_points(user_lat: float, user_lon: float, waste_type: str, al
 def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """
     Finds the next collection date for a specific waste type and street.
-    Enhanced with additional diagnostics.
+    Skips collections that are earlier on the same day.
     """
-    today = datetime.now().date()
+    # Get current date and time for same-day checks
+    now = datetime.now()
+    today = now.date()
+    current_hour = now.hour
     relevant_dates = []
     
     # Clean the input street name for matching
     cleaned_street_name = street_name.lower().strip()
     
     logger.info(f"Searching for collection dates for '{waste_type}' on street '{street_name}'")
-    logger.info(f"Total collection date records available: {len(all_dates)}")
-    
-    # Count records for this waste type
-    waste_type_records = [item for item in all_dates if item.get('sammlung', '').lower() == waste_type.lower()]
-    logger.info(f"Found {len(waste_type_records)} records for waste type '{waste_type}'")
-    
-    # Log all street names in the dataset (for diagnostic purposes)
-    all_streets = set()
-    for item in all_dates:
-        streets = item.get('strasse', [])
-        if isinstance(streets, list):
-            all_streets.update(streets)
-    
-    logger.info(f"Found {len(all_streets)} unique streets in the dataset")
-    
-    # Check if our street is in the dataset at all
-    street_exists = any(cleaned_street_name in s.lower() or s.lower() in cleaned_street_name for s in all_streets if isinstance(s, str))
-    logger.info(f"Street '{cleaned_street_name}' exists in dataset: {street_exists}")
     
     for item in all_dates:
         # Check if this item is for the waste type we're looking for
@@ -398,23 +384,58 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
             
             # Check if either is a substring of the other
             if cleaned_street_name in street_lower or street_lower in cleaned_street_name:
-                logger.info(f"Match found: '{cleaned_street_name}' matches '{street_lower}'")
-                
                 try:
                     # Parse the date
                     date_str = item.get('datum')
                     if date_str:
                         date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
                         
-                        # Only include future dates
-                        if date_obj >= today:
+                        # Check if it's in the future
+                        if date_obj > today:
+                            # Future date is definitely valid
                             relevant_dates.append({
                                 'date': date_obj,
                                 'time': item.get('zeit', 'N/A'),
                                 'description': item.get('titel', 'Collection'),
                                 'area': item.get('gebietsbezeichnung', 'N/A')
                             })
-                            logger.info(f"Added relevant date: {date_obj} for {waste_type}")
+                        elif date_obj == today:
+                            # It's today - check the time
+                            time_str = item.get('zeit', '')
+                            
+                            # Try to extract the hour from time string like "ab 7.00 Uhr"
+                            collection_hour = None
+                            time_match = re.search(r'ab\s+(\d+)[\.:]', time_str)
+                            if time_match:
+                                try:
+                                    collection_hour = int(time_match.group(1))
+                                    
+                                    # If collection time is in the future today, include it
+                                    if collection_hour > current_hour:
+                                        relevant_dates.append({
+                                            'date': date_obj,
+                                            'time': time_str,
+                                            'description': item.get('titel', 'Collection'),
+                                            'area': item.get('gebietsbezeichnung', 'N/A')
+                                        })
+                                    else:
+                                        logger.info(f"Skipping same-day collection at {collection_hour}:00 because current time is {current_hour}:00")
+                                except ValueError:
+                                    # If we can't parse the hour, include it to be safe
+                                    relevant_dates.append({
+                                        'date': date_obj,
+                                        'time': time_str,
+                                        'description': item.get('titel', 'Collection'),
+                                        'area': item.get('gebietsbezeichnung', 'N/A')
+                                    })
+                            else:
+                                # If we can't extract the hour, include it to be safe
+                                relevant_dates.append({
+                                    'date': date_obj,
+                                    'time': time_str,
+                                    'description': item.get('titel', 'Collection'),
+                                    'area': item.get('gebietsbezeichnung', 'N/A')
+                                })
                 except ValueError:
                     logger.warning(f"Invalid date format in collection data: {item.get('datum')}")
                     continue
@@ -426,20 +447,9 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
     relevant_dates.sort(key=lambda x: x['date'])
     
     if relevant_dates:
-        logger.info(f"Found {len(relevant_dates)} future collection dates. Next is on {relevant_dates[0]['date']}")
         return relevant_dates[0]
     else:
         logger.warning(f"No future collection dates found for waste type '{waste_type}' on street '{street_name}'")
-        
-        # If no matches, suggest some similar streets for debugging
-        similar_streets = []
-        for s in all_streets:
-            if isinstance(s, str) and (cleaned_street_name[:4] in s.lower() or s.lower()[:4] in cleaned_street_name):
-                similar_streets.append(s)
-        
-        if similar_streets:
-            logger.info(f"Similar streets that might match: {similar_streets[:10]}")
-        
         return None
 # Function to format results for display in Streamlit
 def format_collection_points(collection_points: List[Dict[str, Any]]) -> Tuple[pd.DataFrame, List[Dict[str, Any]]]:
