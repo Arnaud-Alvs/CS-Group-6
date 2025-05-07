@@ -382,18 +382,24 @@ def find_collection_points(user_lat: float, user_lon: float, waste_type: str, al
 def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """
     Finds the next collection date for a specific waste type and street.
-    Improved to handle streets stored as a list in the database.
+    Improved with better street name matching.
     """
     today = datetime.now().date()
     relevant_dates = []
     
-    # Clean the street name for better matching
+    # Clean and simplify the street name for better matching
     cleaned_street_name = street_name.lower()
-    cleaned_street_name = re.sub(r'strasse$|straße$|weg$|gasse$', '', cleaned_street_name).strip()
+    # Remove street suffixes and common words
+    cleaned_street_name = re.sub(r'strasse$|straße$|weg$|gasse$|straat$|allee$', '', cleaned_street_name).strip()
     
     logger.info(f"Searching for collection dates for '{waste_type}' on street '{street_name}' (cleaned: '{cleaned_street_name}')")
     
+    # Keep a simple counter to verify we're processing data
+    processed_items = 0
+    
     for item in all_dates:
+        processed_items += 1
+        
         # Skip items that don't have the required fields
         if "sammlung" not in item or "strasse" not in item or "datum" not in item:
             continue
@@ -405,45 +411,28 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
         # Get the list of streets for this collection
         streets_data = item.get("strasse", [])
         
-        # Debug log to see what's in the streets data
-        logger.info(f"Streets data type: {type(streets_data)}, Content preview: {str(streets_data)[:100]}")
+        # Convert to list if it's not already
+        if not isinstance(streets_data, list):
+            streets_data = [streets_data]
         
-        # Handle streets based on the data type
-        if isinstance(streets_data, list):
-            streets = [s.lower() for s in streets_data]
-        elif isinstance(streets_data, str):
-            # If it's a string, it might be a JSON-encoded list
-            try:
-                streets_list = json.loads(streets_data)
-                streets = [s.lower() for s in streets_list]
-            except json.JSONDecodeError:
-                # If it's not valid JSON, treat it as a single street
-                streets = [streets_data.lower()]
-        else:
-            # Fallback case
-            streets = []
-            logger.warning(f"Unexpected streets data format: {type(streets_data)}")
+        # Create a simple flag for debugging
+        found_match = False
         
-        # Check if our street is in the list (using partial matching)
-        street_match = False
-        for street in streets:
-            street_lower = street.lower()
-            # Remove common suffixes for better matching
-            street_clean = re.sub(r'strasse$|straße$|weg$|gasse$', '', street_lower).strip()
+        # Check each street in the list
+        for street in streets_data:
+            if not isinstance(street, str):
+                continue
+                
+            # Clean the street name from database for better matching
+            db_street = street.lower()
+            db_street = re.sub(r'strasse$|straße$|weg$|gasse$|straat$|allee$', '', db_street).strip()
             
-            # Log each street for debugging
-            logger.info(f"Comparing user street '{cleaned_street_name}' with database street '{street_clean}'")
-            
-            # Check for various matching conditions
-            if (cleaned_street_name in street_clean or 
-                street_clean in cleaned_street_name or
-                street_lower.startswith(cleaned_street_name) or
-                cleaned_street_name.startswith(street_clean)):
-                street_match = True
-                logger.info(f"MATCH FOUND: '{cleaned_street_name}' matches '{street_clean}'")
+            # Try very simple substring matching
+            if cleaned_street_name in db_street or db_street in cleaned_street_name:
+                found_match = True
                 break
         
-        if street_match:
+        if found_match:
             try:
                 # Parse the date
                 collection_date_str = item.get("datum")
@@ -461,6 +450,9 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
                 logger.warning(f"Invalid date format in collection data: {item['datum']}")
                 continue
     
+    # Log how many items we processed
+    logger.info(f"Processed {processed_items} collection date records")
+    
     # Sort relevant dates to find the soonest
     relevant_dates.sort(key=lambda x: x["date"])
     
@@ -468,6 +460,17 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
         logger.info(f"Found {len(relevant_dates)} future collection dates. Next is on {relevant_dates[0]['date']}")
     else:
         logger.warning(f"No future collection dates found for waste type '{waste_type}' on street '{street_name}'")
+        
+        # Debug: Log the first few streets from collection dates for this waste type
+        streets_sample = []
+        for item in all_dates[:20]:  # Look at first 20 items
+            if item.get("sammlung", "").lower() == waste_type.lower():
+                streets = item.get("strasse", [])
+                if isinstance(streets, list) and streets:
+                    streets_sample.extend(streets[:3])  # Add up to 3 streets from each matching record
+                    
+        if streets_sample:
+            logger.info(f"Sample streets for {waste_type}: {streets_sample[:10]}")
     
     # Return the soonest date, or None if no future dates are found
     return relevant_dates[0] if relevant_dates else None
@@ -580,7 +583,16 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
     results["has_disposal_locations"] = len(collection_points) > 0
     
     # 2. Get the next collection date for the waste type
-    street_name = address.split()[0]  # Extract street name from address
+    street_parts = address.split()
+    if len(street_parts) >= 2:
+    # Extract full street name without number
+        street_number_pattern = r'\d+'
+        street_parts_without_numbers = [part for part in street_parts if not re.match(street_number_pattern, part)]
+        street_name = ' '.join(street_parts_without_numbers)
+    else:
+        street_name = address
+
+    logger.info(f"Extracted street name '{street_name}' from address '{address}'")    # Extract street name from address
     next_date = get_next_collection_date(street_name, waste_type, all_dates)
     
     results["next_collection_date"] = next_date
