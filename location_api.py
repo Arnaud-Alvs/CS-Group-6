@@ -254,7 +254,7 @@ def fetch_collection_dates() -> List[Dict[str, Any]]:
         
         # Start with page 0
         offset = 0
-        limit = 500  # Number of records per page
+        limit = 100  # Number of records per page
         
         logger.info(f"Starting to fetch collection dates from {base_url}")
         
