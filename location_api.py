@@ -246,7 +246,7 @@ def fetch_collection_points() -> List[Dict[str, Any]]:
 def fetch_collection_dates() -> List[Dict[str, Any]]:
     """
     Fetches waste collection dates data from the St. Gallen Open Data API.
-    Uses pagination to ensure ALL records are retrieved.
+    Pre-filters to include only 2025 dates for better performance.
     """
     try:
         all_results = []
@@ -259,13 +259,14 @@ def fetch_collection_dates() -> List[Dict[str, Any]]:
         logger.info(f"Starting to fetch collection dates from {base_url}")
         
         while True:
-            # Configure parameters for this page
+            # Configure parameters for this page, including the 2025 filter
             params = {
                 "limit": limit,
-                "offset": offset
+                "offset": offset,
+                "refine": "datum:\"2025\""  # Filter for 2025 dates only
             }
             
-            logger.info(f"Fetching page with offset {offset}, limit {limit}")
+            logger.info(f"Fetching page with offset {offset}, limit {limit}, filtered to 2025")
             
             # Make the request
             response = requests.get(base_url, params=params, timeout=30)
@@ -292,38 +293,7 @@ def fetch_collection_dates() -> List[Dict[str, Any]]:
             offset += limit
         
         if all_results:
-            logger.info(f"Successfully fetched {len(all_results)} collection dates.")
-            
-            # Do a quick check for Altmetall and Iddastrasse records
-            altmetall_records = [r for r in all_results if r.get('sammlung') == 'Altmetall']
-            logger.info(f"Found {len(altmetall_records)} records for Altmetall")
-            
-            iddastrasse_records = []
-            for record in all_results:
-                streets = record.get('strasse', [])
-                if isinstance(streets, list) and any('idda' in s.lower() for s in streets if isinstance(s, str)):
-                    iddastrasse_records.append(record)
-            
-            logger.info(f"Found {len(iddastrasse_records)} records mentioning Iddastrasse")
-            
-            # Check specifically for Altmetall + Iddastrasse
-            matching_records = []
-            for record in all_results:
-                if record.get('sammlung') != 'Altmetall':
-                    continue
-                    
-                streets = record.get('strasse', [])
-                if not isinstance(streets, list):
-                    continue
-                    
-                if any('idda' in s.lower() for s in streets if isinstance(s, str)):
-                    matching_records.append(record)
-                    
-            logger.info(f"Found {len(matching_records)} records for Altmetall on Iddastrasse")
-            if matching_records:
-                for record in matching_records:
-                    logger.info(f"Match found: {record}")
-            
+            logger.info(f"Successfully fetched {len(all_results)} collection dates for 2025.")
             return all_results
         else:
             logger.warning("API returned empty results despite successful connection.")
