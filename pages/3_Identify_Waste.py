@@ -326,7 +326,7 @@ if st.session_state.identified_waste_type:
                     st.session_state.user_address = user_address
                     
                     # Redirect to collection points page with the results
-                    st.page_link("2_Find_Collection_Points.py", label="View Collection Points", icon="🚮")
+                    st.page_link("pages/2_Find_Collection_Points.py", label="View Collection Points", icon="🚮")
                     st.write("Your waste type has been identified. Click above to view collection points.")
                     st.session_state.show_results = True
 
