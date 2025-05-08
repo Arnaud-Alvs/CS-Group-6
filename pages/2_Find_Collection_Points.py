@@ -209,15 +209,6 @@ if 'show_results' in st.session_state and st.session_state.show_results:
             st.experimental_rerun()
 
 
-# Separator
-st.markdown("---")
-# Useful links
-st.subheader("Useful links")
-st.markdown("[Complete recycling guide](https://www.stadt.sg.ch/home/umwelt-energie/entsorgung.html)")
-st.markdown("[Reducing waste in everyday life](https://www.bafu.admin.ch/bafu/en/home/topics/waste/guide-to-waste-a-z/avoiding-waste.html)")
-st.markdown("[Waste legislation in Switzerland](https://www.bafu.admin.ch/bafu/en/home/topics/waste/legal-basis.html)")
-st.markdown("[Official St. Gallen city website](https://www.stadt.sg.ch/)")
-
 # Set up sidebar
 with st.sidebar:
     st.title("WasteWise")
