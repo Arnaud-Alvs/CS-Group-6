@@ -365,4 +365,12 @@ if __name__ == "__main__":
     st.write("Please wait while we load the application...")
     
     # Redirect to the Home page
-    st.switch_page(os.path.join(os.path.dirname(__file__), "./pages/1_Home.py"))
+    print(f"Current directory: {os.getcwd()}")
+    print(f"Directory contents: {os.listdir('.')}")
+    print(f"Pages directory exists: {os.path.exists('pages')}")
+    if os.path.exists('pages'):
+        print(f"Pages directory contents: {os.listdir('pages')}")
+    print(f"Home page exists: {os.path.exists('pages/1_Home.py')}")
+
+# Then try the switch
+    st.switch_page("pages/1_Home.py")
