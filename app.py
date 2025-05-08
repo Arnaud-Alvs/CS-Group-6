@@ -500,6 +500,7 @@ with tab2:
         "Textiles 👕", 
         "Oil 🛢", 
         "Hazardous waste ⚠"
+        "Plastic"
     ]
     
     # Show model status
@@ -681,6 +682,15 @@ with tab2:
                                 "Check local rules as they vary widely",
                                 "Some recycling centers accept clean foam",
                                 "Break into smaller pieces"
+                            ]
+                        },
+                        "Plastic": {
+                            "bin": "Plastic recycling or general waste (check local rules)",
+                            "tips": [
+                                "Rinse bottles and containers",
+                                "Remove caps and labels if required",
+                                "Check for recyclable plastic symbols",
+                                "Do not mix with other materials"
                             ]
                         }
                     }
