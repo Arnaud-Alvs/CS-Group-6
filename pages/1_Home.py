@@ -52,7 +52,7 @@ with col1:
     Simply tell us what waste you want to dispose of and your address in St. Gallen.
     We'll find the nearest collection points and upcoming collection dates for you.
     """)
-    st.page_link("pages/2_Find_Collection_Points.py", label="Find Disposal Options", icon="🔍")
+    st.page_link("2_Find_Collection_Points.py", label="Find Disposal Options", icon="🔍")
     
 with col2:
     st.markdown("### 🔍 Identify Your Waste")
@@ -60,7 +60,7 @@ with col2:
     Not sure what type of waste you have? Upload a photo or describe it,
     and our AI will help you identify it and provide proper disposal instructions.
     """)
-    st.page_link("pages/3_Identify_Waste.py", label="Identify Your Waste", icon="📸")
+    st.page_link("3_Identify_Waste.py", label="Identify Your Waste", icon="📸")
 
 # Tips of the day
 st.markdown("---")
