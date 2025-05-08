@@ -318,7 +318,18 @@ if st.session_state.identified_waste_type:
             else:
                 with st.spinner(f"Searching for disposal options for {st.session_state.identified_waste_type}..."):
                     # Use the waste disposal function
+                                
+                    api_waste_type = convert_waste_type_to_api(st.session_state.identified_waste_type)
+
                     waste_info = handle_waste_disposal(user_address, api_waste_type)
+
+                    st.write("Results:", waste_info["message"])
+                    st.write(f"Collection points found: {len(waste_info['collection_points'])}")
+                    st.write(f"Has disposal locations: {waste_info['has_disposal_locations']}")
+
+                    if waste_info["collection_points"]:
+                        st.write("First collection point:", waste_info["collection_points"][0]["name"])
+            
                     
                     # Store results in session state
                     st.session_state.waste_info_results = waste_info
@@ -326,9 +337,13 @@ if st.session_state.identified_waste_type:
                     st.session_state.user_address = user_address
                     
                     # Redirect to collection points page with the results
-                    st.page_link("pages/2_Find_Collection_Points.py", label="View Collection Points", icon="🚮")
-                    st.write("Your waste type has been identified. Click above to view collection points.")
-                    st.session_state.show_results = True
+                    st.write("View results on the Collection Points page:")
+                    if st.button("Go to Collection Points", key="goto_collection"):
+                     # This is a simpler approach - first make sure the session state is set
+                        st.session_state.show_results = True
+                    # Then navigate to the page
+                        import streamlit as st
+                        st.switch_page("pages/2_Find_Collection_Points.py")
 
 # Reset button at the bottom of the page
 if st.session_state.identified_waste_type:

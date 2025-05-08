@@ -66,6 +66,14 @@ except ImportError as e:
     st.error(f"Failed to import required functions: {str(e)}")
     st.stop()
 
+
+st.write("Session state keys:", list(st.session_state.keys()))
+if 'waste_info_results' in st.session_state:
+    st.write("waste_info_results exists in session state")
+    if st.session_state.waste_info_results:
+        st.write(f"Collection points in session: {len(st.session_state.waste_info_results['collection_points'])}")
+if 'show_results' in st.session_state:
+    st.write("show_results in session:", st.session_state.show_results)
 # Initialize session state if not already done
 if 'waste_info_results' not in st.session_state:
     st.session_state.waste_info_results = None
