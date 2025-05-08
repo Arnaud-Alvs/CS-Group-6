@@ -365,4 +365,4 @@ if __name__ == "__main__":
     st.write("Please wait while we load the application...")
     
     # Redirect to the Home page
-    st.switch_page("pages/1_Home.py")
+    st.switch_page("./pages/1_Home.py")
