@@ -126,7 +126,7 @@ with tab1:
                         st.warning("⚠️ This item does not match any known waste category. Please try describing it differently.")
                     else:
                         st.session_state.search_for_collection = True
-                        st.experimental_rerun()
+                        st.rerun()
 
 with tab2:
     st.markdown("### Upload a photo of your waste")
@@ -154,7 +154,7 @@ with tab2:
                             st.warning("⚠️ This item could not be identified. Try uploading a clearer image or use the description method.")
                         else:
                             st.session_state.search_for_collection = True
-                            st.experimental_rerun()
+                            st.rerun()
         except Exception as e:
             st.error(f"Error processing image: {e}")
 
@@ -337,7 +337,7 @@ if st.session_state.identified_waste_type:
         st.session_state.identified_waste_type = None
         st.session_state.waste_confidence = None
         st.session_state.search_for_collection = False
-        st.experimental_rerun()
+        st.rerun()
 
 # Set up sidebar
 with st.sidebar:

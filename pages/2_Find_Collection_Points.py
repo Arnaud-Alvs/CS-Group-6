@@ -206,8 +206,7 @@ if 'show_results' in st.session_state and st.session_state.show_results:
         if st.button("Search Again", key="search_again"):
             # Clear the results
             st.session_state.show_results = False
-            st.experimental_rerun()
-
+            st.rerun()
 
 # Set up sidebar
 with st.sidebar:
