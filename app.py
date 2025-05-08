@@ -707,7 +707,7 @@ with tab2:
                     else:
                         if st.button("Find collection points for this waste type"):
                         # Store waste type in session state
-                        if "session_state" not in st.session_state:
+                            if "session_state" not in st.session_state:
                             st.session_state["waste_type"] = category
                             st.session_state["active_tab"] = 0  # Find a collection point tab
                         st.experimental_rerun()
