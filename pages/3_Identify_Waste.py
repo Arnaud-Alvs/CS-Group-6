@@ -296,55 +296,60 @@ if st.session_state.identified_waste_type:
             st.write("Please check your local waste management guidelines for this specific item.")
     
     # Offer to search for collection points if a valid waste type was identified
-    if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state.search_for_collection:
-        st.markdown("---")
-        st.subheader("Find collection points")
-        
-        # Convert identified waste type to API format
-        api_waste_type = convert_waste_type_to_api(st.session_state.identified_waste_type)
-        
-        with st.form(key="identified_waste_form"):
-            user_address = st.text_input(
-                "Enter your address in St. Gallen to find nearby collection points:",
-                placeholder="e.g., Musterstrasse 1",
-                help="Enter your address, it must include a street name and number."
-            )
-            
-            submit_button = st.form_submit_button("Find collection points")
-        
-        if submit_button:
-            if not user_address:
-                st.warning("Please enter your address.")
-            else:
-                with st.spinner(f"Searching for disposal options for {st.session_state.identified_waste_type}..."):
-                    # Use the waste disposal function
-                                
-                    api_waste_type = convert_waste_type_to_api(st.session_state.identified_waste_type)
+    # This is the section to modify in pages/3_Identify_Waste.py
+# Replace the collection points search section with this improved code
 
-                    waste_info = handle_waste_disposal(user_address, api_waste_type)
-
-                    st.write("Results:", waste_info["message"])
-                    st.write(f"Collection points found: {len(waste_info['collection_points'])}")
-                    st.write(f"Has disposal locations: {waste_info['has_disposal_locations']}")
-
-                    if waste_info["collection_points"]:
-                        st.write("First collection point:", waste_info["collection_points"][0]["name"])
-            
+# Offer to search for collection points if a valid waste type was identified
+if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state.search_for_collection:
+    st.markdown("---")
+    st.subheader("Find collection points")
+    
+    # Convert identified waste type to API format
+    api_waste_type = convert_waste_type_to_api(st.session_state.identified_waste_type)
+    
+    with st.form(key="identified_waste_form"):
+        user_address = st.text_input(
+            "Enter your address in St. Gallen to find nearby collection points:",
+            placeholder="e.g., Musterstrasse 1",
+            help="Enter your address, it must include a street name and number."
+        )
+        
+        submit_button = st.form_submit_button("Find collection points")
+    
+    if submit_button:
+        if not user_address:
+            st.warning("Please enter your address.")
+        else:
+            with st.spinner(f"Searching for disposal options for {st.session_state.identified_waste_type}..."):
+                # Use the waste disposal function
+                api_waste_type = convert_waste_type_to_api(st.session_state.identified_waste_type)
+                waste_info = handle_waste_disposal(user_address, api_waste_type)
+                
+                # Store results in session state for Page 2 to use
+                st.session_state.waste_info_results = waste_info
+                st.session_state.selected_waste_type = st.session_state.identified_waste_type
+                st.session_state.user_address = user_address
+                st.session_state.show_results = True  # Flag to show results in Page 2
+                
+                # Show a preview of the results here
+                st.success(f"Found information for {st.session_state.identified_waste_type}")
+                
+                # Display a summary of the results
+                st.markdown("### Quick summary:")
+                st.markdown(waste_info["message"])
+                
+                if waste_info["has_disposal_locations"]:
+                    st.markdown(f"- Found {len(waste_info['collection_points'])} collection points")
+                
+                if waste_info["has_scheduled_collection"]:
+                    next_date = waste_info["next_collection_date"]["date"].strftime('%A, %B %d, %Y')
+                    st.markdown(f"- Next collection date: {next_date}")
+                
+                # Option to view full results in the Collection Points page
+                st.markdown("### View detailed results with map")
+                if st.button("Go to Collection Points Page for detailed view", key="goto_collection"):
+                    st.switch_page("pages/2_Find_Collection_Points.py")
                     
-                    # Store results in session state
-                    st.session_state.waste_info_results = waste_info
-                    st.session_state.selected_waste_type = st.session_state.identified_waste_type
-                    st.session_state.user_address = user_address
-                    
-                    # Redirect to collection points page with the results
-                    st.write("View results on the Collection Points page:")
-                    if st.button("Go to Collection Points", key="goto_collection"):
-                     # This is a simpler approach - first make sure the session state is set
-                        st.session_state.show_results = True
-                    # Then navigate to the page
-                        import streamlit as st
-                        st.switch_page("pages/2_Find_Collection_Points.py")
-
 # Reset button at the bottom of the page
 if st.session_state.identified_waste_type:
     if st.button("Start Over", key="start_over"):

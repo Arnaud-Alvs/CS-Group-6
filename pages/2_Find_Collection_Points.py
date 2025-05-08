@@ -66,79 +66,86 @@ except ImportError as e:
     st.error(f"Failed to import required functions: {str(e)}")
     st.stop()
 
-
-st.write("Session state keys:", list(st.session_state.keys()))
-if 'waste_info_results' in st.session_state:
-    st.write("waste_info_results exists in session state")
-    if st.session_state.waste_info_results:
-        st.write(f"Collection points in session: {len(st.session_state.waste_info_results['collection_points'])}")
-if 'show_results' in st.session_state:
-    st.write("show_results in session:", st.session_state.show_results)
 # Initialize session state if not already done
 if 'waste_info_results' not in st.session_state:
     st.session_state.waste_info_results = None
+if 'show_results' not in st.session_state:
     st.session_state.show_results = False
+if 'user_address' not in st.session_state:
+    st.session_state.user_address = ""
+if 'selected_waste_type' not in st.session_state:
+    st.session_state.selected_waste_type = ""
 
 # Page header
 st.title("🚮 Find Collection Information")
 
-st.markdown(
+coming_from_identification = (st.session_state.show_results and 
+                             st.session_state.waste_info_results is not None and
+                             'identified_waste_type' in st.session_state)
+
+# Different welcome message based on where we're coming from
+if coming_from_identification:
+    st.info(f"Showing results for {st.session_state.identified_waste_type} at {st.session_state.user_address}")
+else:
+    st.markdown(
     """
     Welcome to WasteWise! Enter the type of waste you want to dispose of
     and your address in St. Gallen to find nearby collection points and
     upcoming collection dates.
     """
-)
+    )
+
+if not coming_from_identification or st.checkbox("Search for a different waste type or address"):
 
 # --- User Input Section ---
 # Get available waste types from location_api
-available_waste_types_german = get_available_waste_types()
+    available_waste_types_german = get_available_waste_types()
 # Translate waste types for the dropdown
-available_waste_types_english = [translate_waste_type(wt) for wt in available_waste_types_german]
+    available_waste_types_english = [translate_waste_type(wt) for wt in available_waste_types_german]
 
 # Create a mapping from English back to German for API calls
-waste_type_mapping = dict(zip(available_waste_types_english, available_waste_types_german))
+    waste_type_mapping = dict(zip(available_waste_types_english, available_waste_types_german))
 
 # Button to trigger the search
-with st.form(key="waste_search_form"):
+    with st.form(key="waste_search_form"):
     # Move your input fields here
-    selected_waste_type_english = st.selectbox(
-        "Select Waste Type:",
-        options=available_waste_types_english,
-        help="Choose the type of waste you want to dispose of."
-    )
+        selected_waste_type_english = st.selectbox(
+            "Select Waste Type:",
+            options=available_waste_types_english,
+            help="Choose the type of waste you want to dispose of."
+        )
 
-    user_address = st.text_input(
-        "Enter your Address in St. Gallen:",
-        placeholder="e.g., Musterstrasse 1",
-        help="Enter your address, it must include a street name and number."
-    )
+        user_address = st.text_input(
+            "Enter your Address in St. Gallen:",
+            placeholder="e.g., Musterstrasse 1",
+            help="Enter your address, it must include a street name and number."
+        )
 
-    # Form submit button
-    submit_button = st.form_submit_button("Find Information")
+        # Form submit button
+        submit_button = st.form_submit_button("Find Information")
 
 # Process form submission
-if submit_button:
-    if not user_address:
-        st.warning("Please enter your address.")
-    elif not selected_waste_type_english:
-        st.warning("Please select a waste type.")
-    else:
-        # Show a progress indicator
-        with st.spinner(f"Searching for disposal options for {selected_waste_type_english}..."):
-            # Translate selected waste type back to German for API calls
-            selected_waste_type_german = waste_type_mapping.get(selected_waste_type_english, selected_waste_type_english)
+    if submit_button:
+        if not user_address:
+            st.warning("Please enter your address.")
+        elif not selected_waste_type_english:
+            st.warning("Please select a waste type.")
+        else:
+            # Show a progress indicator
+            with st.spinner(f"Searching for disposal options for {selected_waste_type_english}..."):
+                # Translate selected waste type back to German for API calls
+                selected_waste_type_german = waste_type_mapping.get(selected_waste_type_english, selected_waste_type_english)
             
-            # Store inputs in session state
-            st.session_state.selected_waste_type = selected_waste_type_english
-            st.session_state.user_address = user_address
+                # Store inputs in session state
+                st.session_state.selected_waste_type = selected_waste_type_english
+                st.session_state.user_address = user_address
             
-            # Use the combined function for waste disposal information
-            waste_info = handle_waste_disposal(user_address, selected_waste_type_german)
+                # Use the combined function for waste disposal information
+                waste_info = handle_waste_disposal(user_address, selected_waste_type_german)
             
-            # Store results in session state
-            st.session_state.waste_info_results = waste_info
-            st.session_state.show_results = True
+                # Store results in session state
+                st.session_state.waste_info_results = waste_info
+                st.session_state.show_results = True
 
 # Display results section - only if we have data
 if 'show_results' in st.session_state and st.session_state.show_results:
