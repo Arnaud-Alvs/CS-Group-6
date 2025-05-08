@@ -296,18 +296,6 @@ if st.session_state.identified_waste_type:
         else:
             # Default advice if no match
             st.write("Please check your local waste management guidelines for this specific item.")
-    
-    # Offer to search for collection points if a valid waste type was identified
-    # This is the section to modify in pages/3_Identify_Waste.py
-# Replace the collection points search section with this improved code
-
-# Offer to search for collection points if a valid waste type was identified
-# This is the section to modify in pages/3_Identify_Waste.py
-# Replace the collection points search section with this improved code
-
-# Offer to search for collection points if a valid waste type was identified
-# This is the section to modify in pages/3_Identify_Waste.py
-# Replace the collection points search section with this fixed code
 
 # Offer to search for collection points if a valid waste type was identified
 if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state.search_for_collection:
