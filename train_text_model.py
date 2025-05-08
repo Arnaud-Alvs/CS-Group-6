@@ -6,8 +6,8 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
 import pickle
 
-# Step 1: Load the dataset
-df = pd.read_csv("waste_text_dataset.csv")
+# Step 1: Load the expanded dataset
+df = pd.read_csv("waste_text_dataset_expanded.csv")
 
 # Step 2: Prepare features (X) and labels (y)
 X = df["Description"]  # text input
@@ -18,11 +18,11 @@ label_encoder = LabelEncoder()
 y_encoded = label_encoder.fit_transform(y)
 
 # Step 4: Convert text into numerical features using TF-IDF
-vectorizer = TfidfVectorizer()
+vectorizer = TfidfVectorizer(max_features=5000)
 X_vectorized = vectorizer.fit_transform(X)
 
 # Step 5: Train the classification model
-classifier = RandomForestClassifier(n_estimators=100, random_state=42)
+classifier = RandomForestClassifier(n_estimators=200, random_state=42)
 classifier.fit(X_vectorized, y_encoded)
 
 # Step 6: Save the trained model, vectorizer and label encoder for later use in app.py
