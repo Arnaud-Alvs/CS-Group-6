@@ -260,8 +260,36 @@ def predict_from_image(img, model=None, class_names=None):
         return simple_image_prediction(img)
 
 # Function to convert waste type selected in UI to API format
+# Add this improved convert_waste_type_to_api function to app.py
+# Replace the existing function with this one
+
 def convert_waste_type_to_api(ui_waste_type):
+    """
+    Convert waste type selected in UI to API format with improved handling of emoji and exact matching.
+    """
+    # First strip any emoji from the waste type if present
+    clean_waste_type = ui_waste_type
+    # Remove emoji and additional text if present
+    if " " in clean_waste_type:
+        clean_waste_type = clean_waste_type.split(" ")[0]
+    
     mapping = {
+        "Household": "Kehricht",
+        "Paper": "Papier",
+        "Cardboard": "Karton",
+        "Glass": "Glas",
+        "Green": "Grüngut",
+        "Cans": "Dosen",
+        "Aluminium": "Aluminium",
+        "Metal": "Altmetall",
+        "Textiles": "Alttextilien",
+        "Oil": "Altöl",
+        "Hazardous": "Sonderabfall",
+        "Foam": "Styropor"
+    }
+    
+    # Also support full names with emoji
+    full_mapping = {
         "Household waste 🗑": "Kehricht",
         "Paper 📄": "Papier",
         "Cardboard 📦": "Karton",
@@ -275,7 +303,24 @@ def convert_waste_type_to_api(ui_waste_type):
         "Hazardous waste ⚠": "Sonderabfall",
         "Foam packaging ☁": "Styropor"
     }
-    return mapping.get(ui_waste_type, ui_waste_type)
+    
+    # Try full match first
+    if ui_waste_type in full_mapping:
+        return full_mapping[ui_waste_type]
+    
+    # Then try clean waste type
+    if clean_waste_type in mapping:
+        return mapping[clean_waste_type]
+    
+    # If still not found, try case-insensitive partial matching
+    ui_waste_lower = ui_waste_type.lower()
+    for key, value in full_mapping.items():
+        if key.lower() in ui_waste_lower or ui_waste_lower in key.lower():
+            return value
+    
+    # If we get here, return the original input as fallback
+    # This might happen if the waste type was already in API format
+    return ui_waste_type
 
 # Convert API waste type to UI format (with emojis)
 def convert_api_to_ui_waste_type(api_waste_type):
