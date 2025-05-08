@@ -222,7 +222,7 @@ def predict_from_text(description, model=None, vectorizer=None, encoder=None):
 
             ui_category = category_mapping.get(category, category)
 
-            if confidence < 0.3:
+            if confidence < 0.2:
                 return "Unknown 🚫", float(confidence)
 
             return ui_category, float(confidence)
