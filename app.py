@@ -706,11 +706,11 @@ with tab2:
                         st.info("Finding collection points is disabled for Unknown waste types.")
                     else:
                         if st.button("Find collection points for this waste type"):
-                        # Store waste type in session state
+                            # Store waste type in session state
                             if "session_state" not in st.session_state:
-                            st.session_state["waste_type"] = category
-                            st.session_state["active_tab"] = 0  # Find a collection point tab
-                        st.experimental_rerun()
+                                st.session_state["waste_type"] = category
+                                st.session_state["active_tab"] = 0  # Find a collection point tab
+                            st.experimental_rerun()
 
 with tab3:
     st.header("About WasteWise")
