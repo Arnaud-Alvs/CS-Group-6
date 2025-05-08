@@ -79,23 +79,28 @@ if 'selected_waste_type' not in st.session_state:
 # Page header
 st.title("🚮 Find Collection Information")
 
-coming_from_identification = (st.session_state.show_results and 
-                             st.session_state.waste_info_results is not None and
-                             'identified_waste_type' in st.session_state)
-
+coming_from_identification = (
+    st.session_state.show_results and 
+    st.session_state.waste_info_results is not None and
+    hasattr(st.session_state, 'identified_waste_type') and
+    st.session_state.identified_waste_type is not None
+)
 # Different welcome message based on where we're coming from
-if coming_from_identification:
-    st.info(f"Showing results for {st.session_state.identified_waste_type} at {st.session_state.user_address}")
+if st.session_state.show_results and st.session_state.waste_info_results is not None:
+    if 'identified_waste_type' in st.session_state:
+        st.info(f"Showing results for {st.session_state.identified_waste_type} at {st.session_state.user_address}")
+    else:
+        st.info(f"Showing results for {st.session_state.selected_waste_type} at {st.session_state.user_address}")
 else:
     st.markdown(
-    """
-    Welcome to WasteWise! Enter the type of waste you want to dispose of
-    and your address in St. Gallen to find nearby collection points and
-    upcoming collection dates.
-    """
+        """
+        Welcome to WasteWise! Enter the type of waste you want to dispose of
+        and your address in St. Gallen to find nearby collection points and
+        upcoming collection dates.
+        """
     )
 
-if not coming_from_identification or st.checkbox("Search for a different waste type or address"):
+if not st.session_state.show_results or st.checkbox("Search for a different waste type or address"):
 
 # --- User Input Section ---
 # Get available waste types from location_api
@@ -146,7 +151,7 @@ if not coming_from_identification or st.checkbox("Search for a different waste t
                 # Store results in session state
                 st.session_state.waste_info_results = waste_info
                 st.session_state.show_results = True
-
+                st.rerun()
 # Display results section - only if we have data
 if 'show_results' in st.session_state and st.session_state.show_results:
     # Clear separation from the input form

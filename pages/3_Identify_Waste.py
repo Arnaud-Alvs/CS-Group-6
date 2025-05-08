@@ -304,6 +304,10 @@ if st.session_state.identified_waste_type:
 # Replace the collection points search section with this improved code
 
 # Offer to search for collection points if a valid waste type was identified
+# This is the section to modify in pages/3_Identify_Waste.py
+# Replace the collection points search section with this fixed code
+
+# Offer to search for collection points if a valid waste type was identified
 if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state.search_for_collection:
     st.markdown("---")
     st.subheader("Find collection points")
@@ -327,6 +331,8 @@ if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state
             with st.spinner(f"Searching for disposal options for {st.session_state.identified_waste_type}..."):
                 # Use the waste disposal function
                 api_waste_type = convert_waste_type_to_api(st.session_state.identified_waste_type)
+                
+                # Call the handle_waste_disposal function and store the result
                 waste_info = handle_waste_disposal(user_address, api_waste_type)
                 
                 # Store results in session state for Page 2 to use
@@ -335,25 +341,42 @@ if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state
                 st.session_state.user_address = user_address
                 st.session_state.show_results = True  # Flag to show results in Page 2
                 
-                # Show a preview of the results here
-                st.success(f"Found information for {st.session_state.identified_waste_type}")
+                # Log what we found to debug
+                st.write(f"API found {len(waste_info['collection_points'])} collection points")
                 
-                # Display a summary of the results
-                st.markdown("### Quick summary:")
+                # Show the actual waste_info message 
+                st.markdown("### Results:")
                 st.markdown(waste_info["message"])
                 
                 if waste_info["has_disposal_locations"]:
-                    st.markdown(f"- Found {len(waste_info['collection_points'])} collection points")
+                    points_list = waste_info['collection_points']
+                    st.markdown(f"**Found {len(points_list)} collection points**")
+                    
+                    # Show the first 3 collection points as a preview
+                    if len(points_list) > 0:
+                        st.markdown("### Nearest collection points:")
+                        for i, point in enumerate(points_list[:3]):
+                            st.markdown(f"**{i+1}. {point['name']}** ({point['distance']:.2f} km)")
+                            waste_types = [translate_waste_type(wt) for wt in point['waste_types']]
+                            st.markdown(f"Accepts: {', '.join(waste_types)}")
                 
                 if waste_info["has_scheduled_collection"]:
                     next_date = waste_info["next_collection_date"]["date"].strftime('%A, %B %d, %Y')
-                    st.markdown(f"- Next collection date: {next_date}")
+                    st.markdown(f"**Next collection date: {next_date}**")
                 
-                # Option to view full results in the Collection Points page
-                st.markdown("### View detailed results with map")
-                if st.button("Go to Collection Points Page for detailed view", key="goto_collection"):
-                    st.switch_page("pages/2_Find_Collection_Points.py")
+                # Create a container for the button to navigate to Page 2
+                button_container = st.container()
+                
+                with button_container:
+                    st.markdown("### View detailed results with interactive map")
                     
+                    # Use a direct link instead of a button with switch_page
+                    st.page_link(
+                        "pages/2_Find_Collection_Points.py",
+                        label="Go to Collection Points Page",
+                        icon="🗺️"
+                    )
+
 # Reset button at the bottom of the page
 if st.session_state.identified_waste_type:
     if st.button("Start Over", key="start_over"):
