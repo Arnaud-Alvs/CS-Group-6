@@ -1,12 +1,12 @@
 waste_image_dataset/
-├── Cans
-├── Glass
+├── Cans / Aluminium
 ├── Cardboard
-├── Aluminium
-├── Foam
-├── Metal
-├── Textiles
-├── Household
-├── Hazardous
+├── Glass
 ├── Green
+├── Hazardous
+├── Household waste
+├── Metal
 ├── Oil
+├── Paper
+├── Plastic
+├── Textiles
