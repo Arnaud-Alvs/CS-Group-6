@@ -203,26 +203,30 @@ def predict_from_text(description, model=None, vectorizer=None, encoder=None):
             
             # Get category from encoder and ensure it's in the right format
             category = encoder.inverse_transform([prediction])[0]
-            
-            # Map category to UI format with emojis if needed
+
+        # Map category to UI format with emojis if needed
             category_mapping = {
-                    "Household": "Household waste 🗑",
-                    "Paper": "Paper 📄",
-                    "Cardboard": "Cardboard 📦",
-                    "Glass": "Glass 🍾",
-                    "Green": "Green waste 🌿",
-                    "Cans": "Cans 🥫",
-                    "Aluminium": "Aluminium 🧴",
-                    "Metal": "Metal 🪙",
-                    "Textiles": "Textiles 👕",
-                    "Oil": "Oil 🛢",
-                    "Hazardous": "Hazardous waste ⚠",
-                    "Foam packaging": "Foam packaging ☁"
-                    }
+                "Household": "Household waste 🗑",
+                "Paper": "Paper 📄",
+                "Cardboard": "Cardboard 📦",
+                "Glass": "Glass 🍾",
+                 "Green": "Green waste 🌿",
+                "Cans": "Cans 🥫",
+                "Aluminium": "Aluminium 🧴",
+                "Metal": "Metal 🪙",
+                "Textiles": "Textiles 👕",
+                "Oil": "Oil 🛢",
+                "Hazardous": "Hazardous waste ⚠",
+                "Foam packaging": "Foam packaging ☁"
+            }
 
             ui_category = category_mapping.get(category, category)
-            
+
+            if confidence < 0.3:
+                return "Unknown 🚫", float(confidence)
+
             return ui_category, float(confidence)
+
         except Exception as e:
             logger.error(f"Error in ML text prediction: {str(e)}")
             # Fall back to rule-based
@@ -545,6 +549,11 @@ with tab2:
                     if category:
                         results.append((category, confidence, "text"))
                         st.success(f"Text analysis result: {category} (confidence: {confidence:.2%})")
+                    
+                    if category == "Unknown 🚫":
+                        st.warning("⚠️ This item does not match any known waste category. Please check local disposal rules or try to describe the item differently.")
+                    else:
+                        st.subheader("Waste sorting advice")
                 
                 # Image analysis
                 if uploaded_file and image is not None:
@@ -689,16 +698,19 @@ with tab2:
                         st.write("Please check your local waste management guidelines for this specific item.")
                     
                     # Offer to search for collection points
+                    # Offer to search for collection points
+                    # Offer to search for collection points
                     st.markdown("---")
-                    if st.button("Find collection points for this waste type"):
+
+                    if category == "Unknown 🚫":
+                        st.info("Finding collection points is disabled for Unknown waste types.")
+                    else:
+                        if st.button("Find collection points for this waste type"):
                         # Store waste type in session state
                         if "session_state" not in st.session_state:
                             st.session_state["waste_type"] = category
                             st.session_state["active_tab"] = 0  # Find a collection point tab
                         st.experimental_rerun()
-        
-        else:
-            st.error("Please describe your waste or upload an image")
 
 with tab3:
     st.header("About WasteWise")
