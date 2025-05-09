@@ -89,8 +89,8 @@ image_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "photos")
 
 with col1:
     st.markdown("### Project Lead")
-    logo = Image.open("photos/Andreas-Jonas-Lucchini.jpg")
-    st.image("https://via.placeholder.com/150", width=150)
+    photo1 = Image.open("photos/Andreas-Jonas-Lucchini.jpg")
+    st.image(photo1, width=150)
     st.markdown("**Andreas l'italien**")
     st.markdown("Porject Management")
     
