@@ -364,6 +364,25 @@ IMAGE_CLASS_NAMES = [
     "Hazardous", "Household", "Metal", "Oil", "Paper", "Plastic", "Textiles"
 ]
 
+def convert_to_ui_label(category):
+    mapping = {
+        "Aluminium": "Aluminium 🧴",
+        "Cans": "Cans 🥫",
+        "Cardboard": "Cardboard 📦",
+        "Foam packaging": "Foam packaging ☁",
+        "Glass": "Glass 🍾",
+        "Green waste": "Green waste 🌿",
+        "Hazardous": "Hazardous waste ⚠",
+        "Household": "Household waste 🗑",
+        "Metal": "Metal 🪙",
+        "Oil": "Oil 🛢",
+        "Paper": "Paper 📄",
+        "Plastic": "Plastic",
+        "Textiles": "Textiles 👕"
+    }
+    return mapping.get(category, category)
+
+
 
 # Try importing folium and streamlit_folium upfront
 try:
