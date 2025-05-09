@@ -1,4 +1,3 @@
-# Add this to a new file named debug_tensorflow.py in your repo
 import streamlit as st
 import os
 import sys
@@ -43,7 +42,8 @@ if test_button:
             tf.keras.layers.Dense(2, input_shape=(3,)),
             tf.keras.layers.Dense(1)
         ])
-        model.compile(optimizer='adam', loss='mse')
+        # Use a different loss function that's less likely to cause errors
+        model.compile(optimizer='adam', loss='mean_squared_error')
         
         # Fit with some dummy data
         X = np.random.rand(10, 3)
@@ -58,7 +58,7 @@ if test_button:
         # Load the model back
         st.write("Loading the test model...")
         loaded_model = tf.keras.models.load_model(test_model_path)
-        st.write("Model structure:", loaded_model.summary())
+        st.write("Model loaded successfully!")
         
         # Test prediction
         test_input = np.random.rand(1, 3)
@@ -73,4 +73,4 @@ if test_button:
         
     except Exception as e:
         st.error(f"❌ Test model loading failed: {str(e)}")
-        st.error("Stack trace:", exc_info=True)
+        st.error("Check the logs for more details")
