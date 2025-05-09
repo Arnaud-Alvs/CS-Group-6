@@ -378,50 +378,6 @@ if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state
 # Add this at the bottom of the find collection points section
 # but before the "Reset button" section in pages/3_Identify_Waste.py
 
-# Add a direct test section for debugging
-st.markdown("---")
-st.subheader("Debug: Test API Directly")
-st.markdown("If you're having trouble finding collection points, you can test the API directly here.")
-
-test_col1, test_col2 = st.columns(2)
-
-with test_col1:
-    # List all available waste types from the API
-    st.markdown("**Available waste types (API format):**")
-    api_waste_types = get_available_waste_types()
-    for wt in api_waste_types:
-        st.write(f"- {wt} → {translate_waste_type(wt)}")
-
-with test_col2:
-    # Direct test form
-    st.markdown("**Test direct API call:**")
-    
-    with st.form(key="direct_api_test"):
-        test_waste_type = st.selectbox(
-            "Select API waste type:",
-            options=api_waste_types
-        )
-        
-        test_address = st.text_input(
-            "Test address:",
-            placeholder="e.g., Musterstrasse 1, St. Gallen"
-        )
-        
-        test_button = st.form_submit_button("Test API call")
-    
-    if test_button and test_waste_type and test_address:
-        with st.spinner("Testing API..."):
-            # Call API directly with the selected waste type
-            waste_info = handle_waste_disposal(test_address, test_waste_type)
-            
-            st.write(f"API call result: {len(waste_info['collection_points'])} collection points found")
-            
-            if len(waste_info['collection_points']) > 0:
-                st.success("Success! Collection points found.")
-                st.markdown("First point: " + waste_info['collection_points'][0]['name'])
-            else:
-                st.error("No collection points found with direct API call.")
-                st.markdown("This suggests an issue with the API connection or the selected waste type/address.")
 # Reset button at the bottom of the page
 if st.session_state.identified_waste_type:
     if st.button("Start Over", key="start_over"):
