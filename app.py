@@ -67,101 +67,266 @@ def check_tensorflow_available():
         return True
     except ImportError:
         return False
+# Add this function to your app.py
+def verify_h5_model_format(model_path):
+    """Verify if H5 file has correct format and convert if needed"""
+    try:
+        import h5py
+        import tensorflow as tf
+        import os
+        
+        # Try to open with h5py to check format
+        try:
+            with h5py.File(model_path, 'r') as f:
+                # Check for key Keras components
+                if 'model_weights' in f or 'layer_names' in f:
+                    logger.info("File appears to be a valid HDF5 Keras model")
+                    return True
+                else:
+                    logger.warning("File is HDF5 but may not be a Keras model")
+        except Exception as e:
+            logger.error(f"Error checking HDF5 format: {str(e)}")
+            
+        # If we get here, try to load and re-save the model in a compatible format
+        logger.info("Attempting to convert model format...")
+        
+        # Try loading the model
+        model = tf.keras.models.load_model(model_path, compile=False)
+        
+        # Save in SavedModel format (more compatible)
+        saved_model_dir = os.path.join(os.path.dirname(model_path), "saved_model")
+        model.save(saved_model_dir, save_format="tf")
+        logger.info(f"Model converted and saved to {saved_model_dir}")
+        
+        return saved_model_dir
+        
+    except Exception as e:
+        logger.error(f"Model verification/conversion failed: {str(e)}")
+        return False
 
 # Function to load the text model - fixed version
 @st.cache_resource
-def load_text_model():
-    """Load text classification model with proper error handling"""
-    try:
-        if not check_ml_models_available():
-            logger.warning("ML model files not found")
-            return None, None, None
-            
-        with open('waste_classifier.pkl', 'rb') as f:
-            model = pickle.load(f)
-        with open('waste_vectorizer.pkl', 'rb') as f:
-            vectorizer = pickle.load(f)
-        with open('waste_encoder.pkl', 'rb') as f:
-            encoder = pickle.load(f)
-        return model, vectorizer, encoder
-    except Exception as e:
-        logger.error(f"Error loading text model: {str(e)}")
-        return None, None, None
-
-# Function to load the image model
-@st.cache_resource
-def load_image_model():
-    """Load image classification model from Google Drive"""
+def download_model_from_gdrive():
+    """Robust image model loading with direct download"""
     try:
         if not check_tensorflow_available():
             logger.warning("TensorFlow not available")
             return None
 
-        from tensorflow.keras.models import load_model
+        import tensorflow as tf
+        import os
+        import requests
+        
+        # Log TensorFlow version
+        logger.info(f"TensorFlow version: {tf.__version__}")
+        
+        # Get paths
+        model_path = os.path.join(os.path.dirname(__file__), "waste_image_classifier.h5")
+        logger.info(f"Model path: {model_path}")
+        
+        # Check if file exists and validate size
+        if os.path.exists(model_path):
+            file_size = os.path.getsize(model_path)
+            logger.info(f"Model file exists, size: {file_size} bytes")
+            
+            # If file is too small, it's likely corrupted
+            if file_size < 100000:  # Less than 100KB
+                logger.warning(f"Model file too small ({file_size} bytes), will redownload")
+                os.remove(model_path)
+        
+        # Download if needed
+        if not os.path.exists(model_path):
+            # Direct download link - THIS IS THE KEY PART
+            # Create a shareable link in Google Drive, then convert it:
+            # Example: https://drive.google.com/file/d/YOUR_FILE_ID/view?usp=sharing
+            # becomes: https://drive.google.com/uc?id=YOUR_FILE_ID&export=download
+            
+            file_id = "17Uxb4w3ehpK0rNj0crgBT1BD7xvFxByz"  # ← Replace with your actual file ID
+            download_url = f"https://drive.google.com/uc?id={file_id}&export=download"
+            
+            st.info("Downloading image classification model... This may take a moment.")
+            
+            # Handle Google Drive download with confirmation for large files
+            session = requests.Session()
+            
+            # First request to get confirmation token if needed
+            response = session.get(download_url, stream=True)
+            token = None
+            
+            # Check if we got a download warning/confirmation page
+            for key, value in response.cookies.items():
+                if key.startswith('download_warning'):
+                    token = value
+                    logger.info("Received download token for large file")
+                    break
+            
+            # If we have a token, we need to confirm the download
+            if token:
+                params = {'id': file_id, 'confirm': token, 'export': 'download'}
+                response = session.get("https://drive.google.com/uc", params=params, stream=True)
+            
+            # Now download the file with progress tracking
+            total_size = int(response.headers.get('content-length', 0))
+            logger.info(f"Starting download, expected size: {total_size} bytes")
+            
+            progress_bar = st.progress(0)
+            downloaded = 0
+            
+            with open(model_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=1024*1024):  # 1MB chunks
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        progress = min(downloaded / total_size, 1.0) if total_size > 0 else 0
+                        progress_bar.progress(progress)
+            
+            # Verify download
+            if os.path.exists(model_path):
+                final_size = os.path.getsize(model_path)
+                logger.info(f"Download completed, file size: {final_size} bytes")
+                
+                if final_size < 1000000:  # Less than 1MB
+                    logger.error(f"Downloaded file too small: {final_size} bytes")
+                    st.error("The downloaded model file appears to be incomplete or corrupted.")
+                    return None
+                
+                st.success(f"Model downloaded successfully ({final_size / (1024*1024):.1f} MB)")
+            else:
+                logger.error("Model file not found after download attempt")
+                st.error("Failed to download model file")
+                return None
+        
+        # Load the model with multiple fallback approaches
+        try:
+            # Approach 1: Standard loading with no compilation
+            logger.info("Attempting to load model with standard approach (no compilation)")
+            from tensorflow.keras.models import load_model
+            model = load_model(model_path, compile=False)
+            logger.info("Model loaded successfully!")
+            return model
+        except Exception as e:
+            logger.error(f"Standard loading failed: {str(e)}")
+            
+            try:
+                # Approach 2: Loading with explicit options
+                logger.info("Trying alternative loading approach")
+                model = tf.keras.models.load_model(
+                    model_path,
+                    compile=False,
+                    custom_objects={},
+                    options=tf.saved_model.LoadOptions(
+                        experimental_io_device='/job:localhost'
+                    )
+                )
+                logger.info("Model loaded successfully with alternative approach!")
+                return model
+            except Exception as e2:
+                logger.error(f"Alternative loading failed: {str(e2)}")
+                
+                # Last resort: If the model is custom or complex, we might need to 
+                # define custom objects or use a different approach
+                st.error("Unable to load the model. It may be incompatible with the current TensorFlow version.")
+                return None
+
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}", exc_info=True)
+        st.error(f"An unexpected error occurred: {str(e)}")
+        return None
+    
+
+
+# In app.py, modify your load_image_model function to integrate the new approach
+@st.cache_resource
+def load_image_model():
+    """Robust image model loading with verification and fallbacks"""
+    try:
+        if not check_tensorflow_available():
+            logger.warning("TensorFlow not available")
+            return None
+
         import tensorflow as tf
         import os
         
-        # Log TensorFlow version for debugging
-        logger.info(f"TensorFlow version: {tf.__version__}")
-        
-        # Get the absolute path to the model file
+        # Get model path
         model_path = os.path.join(os.path.dirname(__file__), "waste_image_classifier.h5")
         
-        # If model doesn't exist, download it from Google Drive
+        # Ensure the model file exists
         if not os.path.exists(model_path):
-            st.info("Downloading image classification model... This may take a moment.")
-            
-            # Make sure gdown is installed
-            try:
-                import gdown
-            except ImportError:
-                st.warning("Installing required package for downloading...")
-                os.system("pip install -q gdown")
-                import gdown
-            
-            # Replace with your actual Google Drive file ID
-            file_id = "17Uxb4w3ehpK0rNj0crgBT1BD7xvFxByz"  # Use the same ID that worked in Codespaces
-            
-            try:
-                # Download file
-                output = gdown.download(id=file_id, output=model_path, quiet=False)
-                
-                if output is None or not os.path.exists(model_path):
-                    st.error("Failed to download model from Google Drive")
-                    logger.error("Failed to download model from Google Drive")
-                    return None
-                
-                # Verify the download
-                if os.path.exists(model_path):
-                    file_size = os.path.getsize(model_path)
-                    logger.info(f"Download complete. File size: {file_size} bytes")
-                
-                st.success("Model downloaded successfully!")
-                
-            except Exception as e:
-                st.error(f"Error downloading model: {str(e)}")
-                logger.error(f"Error downloading model: {str(e)}", exc_info=True)
+            # Call the download function implemented above
+            success = download_model_from_gdrive(model_path)
+            if not success:
                 return None
         
-        # Load the model
+        # Verify and potentially convert the model format
+        verified_path = verify_h5_model_format(model_path)
+        
+        # If verification returned a new path (converted model), use that
+        if verified_path and verified_path != True and verified_path != model_path:
+            logger.info(f"Using converted model at {verified_path}")
+            try:
+                model = tf.keras.models.load_model(verified_path)
+                logger.info("Successfully loaded converted model!")
+                return model
+            except Exception as e:
+                logger.error(f"Failed to load converted model: {str(e)}")
+        
+        # Try loading the original model with multiple approaches
         try:
-            logger.info("Attempting to load model")
-            model = load_model(model_path, compile=False)  # Try without compiling
-            logger.info("Model loaded successfully")
+            # Standard approach
+            model = tf.keras.models.load_model(model_path, compile=False)
+            logger.info("Model loaded successfully!")
             return model
         except Exception as e:
-            logger.error(f"Failed to load model: {str(e)}", exc_info=True)
+            logger.error(f"Standard loading failed: {str(e)}")
             
-            # Delete the file so we can try again next time
-            if os.path.exists(model_path):
-                os.remove(model_path)
-                logger.info(f"Deleted potentially corrupted model file at {model_path}")
+            # Alternative approaches
+            for attempt in range(3):
+                try:
+                    if attempt == 0:
+                        # Try with custom load options
+                        logger.info("Attempt 1: Loading with custom options")
+                        model = tf.keras.models.load_model(
+                            model_path,
+                            compile=False,
+                            custom_objects={}
+                        )
+                    elif attempt == 1:
+                        # Try with explicit IO device
+                        logger.info("Attempt 2: Loading with explicit IO device")
+                        options = tf.saved_model.LoadOptions(
+                            experimental_io_device='/job:localhost'
+                        )
+                        model = tf.keras.models.load_model(
+                            model_path, 
+                            options=options
+                        )
+                    else:
+                        # Last resort: Try reading as raw HDF5
+                        logger.info("Attempt 3: Loading with h5py and reconstructing")
+                        import h5py
+                        with h5py.File(model_path, 'r') as h5file:
+                            # Just check if file can be opened
+                            logger.info(f"HDF5 file opened, keys: {list(h5file.keys())}")
+                        
+                        # Try simpler model loading
+                        model = tf.keras.models.load_model(
+                            model_path,
+                            compile=False,
+                            custom_objects=None,
+                        )
+                    
+                    logger.info(f"Model loaded successfully on attempt {attempt+1}!")
+                    return model
+                    
+                except Exception as e:
+                    logger.error(f"Loading attempt {attempt+1} failed: {str(e)}")
             
-            st.error("Unable to load the model file. It may be corrupted or incompatible.")
+            # If we reach here, all attempts failed
+            st.error("All attempts to load the model failed. Using fallback instead.")
             return None
 
     except Exception as e:
-        logger.error(f"Error in load_image_model: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error in load_image_model: {str(e)}", exc_info=True)
         return None
 # Rules-based fallback prediction when ML models aren't available
 def rule_based_prediction(description):
