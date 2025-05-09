@@ -85,13 +85,7 @@ coming_from_identification = (
     hasattr(st.session_state, 'identified_waste_type') and
     st.session_state.identified_waste_type is not None
 )
-# Different welcome message based on where we're coming from
-if st.session_state.show_results and st.session_state.waste_info_results is not None:
-    if 'identified_waste_type' in st.session_state:
-        st.info(f"Showing results for {st.session_state.identified_waste_type} at {st.session_state.user_address}")
-    else:
-        st.info(f"Showing results for {st.session_state.selected_waste_type} at {st.session_state.user_address}")
-else:
+if not st.session_state.show_results:
     st.markdown(
         """
         Welcome to WasteWise! Enter the type of waste you want to dispose of
@@ -204,7 +198,6 @@ if 'show_results' in st.session_state and st.session_state.show_results:
         
         # Display collection date if available
         if waste_info["has_scheduled_collection"]:
-            st.markdown(f"### Next Collection Date for {selected_waste_type_english}")
             next_collection = waste_info["next_collection_date"]
             
             # Create a nice collection date display
@@ -222,11 +215,6 @@ if 'show_results' in st.session_state and st.session_state.show_results:
             """
             st.markdown(date_html, unsafe_allow_html=True)
         
-        # Add a "Search Again" button at the bottom of results
-        if st.button("Search Again", key="search_again"):
-            # Clear the results
-            st.session_state.show_results = False
-            st.rerun()
 
 # Set up sidebar
 with st.sidebar:
