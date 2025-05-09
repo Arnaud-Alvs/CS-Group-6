@@ -104,13 +104,6 @@ def load_image_model():
         logger.error(f"Error loading image model: {str(e)}")
         return None
 
-        from tensorflow.keras.models import load_model
-        return load_model(model_path)
-
-    except Exception as e:
-        logger.error(f"Error loading image model: {str(e)}")
-        return None
-
 
 # Rules-based fallback prediction when ML models aren't available
 def rule_based_prediction(description):
