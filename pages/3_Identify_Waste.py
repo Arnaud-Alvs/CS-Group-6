@@ -55,7 +55,6 @@ try:
         predict_from_image,
         rule_based_prediction,
         simple_image_prediction,
-        IMAGE_CLASS_NAMES,
         convert_waste_type_to_api,
         handle_waste_disposal,
         translate_waste_type,
@@ -65,6 +64,11 @@ except ImportError as e:
     st.error(f"Failed to import required functions: {str(e)}")
     st.stop()
 
+# ✅ Override IMAGE_CLASS_NAMES with correct emoji-labeled version
+IMAGE_CLASS_NAMES = [
+    "Aluminium 🧴", "Cans 🥫", "Cardboard 📦", "Foam packaging ☁", "Glass 🍾", "Green waste 🌿",
+    "Hazardous waste ⚠", "Household waste 🗑", "Metal 🪙", "Oil 🛢", "Paper 📄", "Plastic", "Textiles 👕"
+]
 
 # Initialize session state for waste identification
 if 'identified_waste_type' not in st.session_state:
