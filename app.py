@@ -91,31 +91,18 @@ def load_text_model():
 # Function to load the image model
 @st.cache_resource
 def load_image_model():
-    """Load image classification model, downloading it from Drive if needed"""
+    """Load image classification model from local file"""
     try:
         if not check_tensorflow_available():
             logger.warning("TensorFlow not available")
             return None
 
-        model_path = "waste_image_classifier.h5"
-        model_url = "https://drive.google.com/uc?export=download&id=17Uxb4w3ehpK0rNj0crgBT1BD7xvFxByz"
+        from tensorflow.keras.models import load_model
+        return load_model("waste_image_classifier.h5")
 
-        if not os.path.exists(model_path):
-            logger.warning("Image model not found. Attempting to download...")
-            st.warning("📦 Downloading trained model from Google Drive...")
-
-            try:
-                import requests
-                with requests.get(model_url, stream=True) as r:
-                    r.raise_for_status()
-                    with open(model_path, "wb") as f:
-                        for chunk in r.iter_content(chunk_size=8192):
-                            f.write(chunk)
-                st.success("✅ Model downloaded successfully!")
-            except Exception as e:
-                logger.error(f"Failed to download model: {str(e)}")
-                st.error("❌ Failed to download the trained model. Please contact the admin.")
-                return None
+    except Exception as e:
+        logger.error(f"Error loading image model: {str(e)}")
+        return None
 
         from tensorflow.keras.models import load_model
         return load_model(model_path)
