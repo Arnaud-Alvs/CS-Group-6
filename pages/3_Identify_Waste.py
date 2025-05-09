@@ -327,15 +327,8 @@ if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state
                 ui_waste_type = st.session_state.identified_waste_type
                 api_waste_type = convert_waste_type_to_api(ui_waste_type)
             
-                # Debug the conversion
-                st.write(f"Converting UI waste type: '{ui_waste_type}' to API format: '{api_waste_type}'")
-            
                 # Call the handle_waste_disposal function with the API-formatted waste type
                 waste_info = handle_waste_disposal(user_address, api_waste_type)
-            
-                # Debug what the API returned
-                st.write(f"API response has_disposal_locations: {waste_info['has_disposal_locations']}")
-                st.write(f"API found: {len(waste_info['collection_points'])} collection points")
             
                 # Store results in session state for Page 2 to use
                 st.session_state.waste_info_results = waste_info
