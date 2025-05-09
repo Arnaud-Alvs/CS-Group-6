@@ -360,9 +360,21 @@ def convert_api_to_ui_waste_type(api_waste_type):
 
 # Define image class names (needed across pages)
 IMAGE_CLASS_NAMES = [
-    "Aluminium", "Cans", "Cardboard", "Foam packaging", "Glass", "Green waste",
-    "Hazardous", "Household", "Metal", "Oil", "Paper", "Plastic", "Textiles"
+    "Aluminium 🧴",
+    "Cans 🥫",
+    "Cardboard 📦",
+    "Foam packaging ☁",
+    "Glass 🍾",
+    "Green waste 🌿",
+    "Hazardous waste ⚠",
+    "Household waste 🗑",
+    "Metal 🪙",
+    "Oil 🛢",
+    "Paper 📄",
+    "Plastic ♳",
+    "Textiles 👕"
 ]
+
 
 def convert_to_ui_label(category):
     mapping = {
