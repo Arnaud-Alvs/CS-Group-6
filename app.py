@@ -91,23 +91,59 @@ def load_text_model():
 # Function to load the image model
 @st.cache_resource
 def load_image_model():
-    """Load image classification model from absolute path"""
+    """Load image classification model with download from GitHub release"""
     try:
         if not check_tensorflow_available():
             logger.warning("TensorFlow not available")
             return None
 
         from tensorflow.keras.models import load_model
-
+        
         # Get the absolute path to the model file
         model_path = os.path.join(os.path.dirname(__file__), "waste_image_classifier.h5")
+        
+        # If model doesn't exist, download it from GitHub release
+        if not os.path.exists(model_path):
+            st.info("Downloading image classification model... This may take a moment.")
+            
+            # Replace with your actual GitHub release URL
+            model_url = "hhttps://github.com/Arnaud-Alvs/CS-Group-6/releases/tag/V-1.0.0/waste_image_classifier.h5"
+            
+            try:
+                import requests
+                r = requests.get(model_url, stream=True)
+                if r.status_code == 200:
+                    with open(model_path, 'wb') as f:
+                        total_size = int(r.headers.get('content-length', 0))
+                        block_size = 1024 * 1024  # 1MB chunks
+                        downloaded = 0
+                        
+                        # Create a progress bar for the download
+                        progress_bar = st.progress(0)
+                        
+                        for chunk in r.iter_content(chunk_size=block_size):
+                            if chunk:
+                                f.write(chunk)
+                                downloaded += len(chunk)
+                                if total_size > 0:
+                                    progress_bar.progress(min(downloaded / total_size, 1.0))
+                    
+                    st.success("Model downloaded successfully!")
+                else:
+                    st.error(f"Failed to download model: HTTP {r.status_code}")
+                    logger.error(f"Failed to download model: HTTP {r.status_code}")
+                    return None
+            except Exception as e:
+                st.error(f"Error downloading model: {str(e)}")
+                logger.error(f"Error downloading model: {str(e)}")
+                return None
+                
+        # Load the model
         return load_model(model_path)
 
     except Exception as e:
         logger.error(f"Error loading image model: {str(e)}")
         return None
-
-
 
 # Rules-based fallback prediction when ML models aren't available
 def rule_based_prediction(description):

@@ -54,34 +54,6 @@ except ImportError as e:
 # Page header
 st.title("ℹ️ About WasteWise")
 
-# System status
-st.subheader("System Status")
-
-# Check API connectivity
-try:
-    test_url = "https://daten.stadt.sg.ch"
-    response = requests.get(test_url, timeout=5)
-    if response.status_code == 200:
-        st.success("✅ St. Gallen API: Connected")
-    else:
-        st.warning(f"⚠️ St. Gallen API: Status code {response.status_code}")
-except Exception as e:
-    st.error(f"❌ St. Gallen API: Disconnected - {str(e)}")
-
-# Check ML models
-if check_ml_models_available():
-    st.success("✅ Text Classification Model: Available")
-else:
-    st.warning("⚠️ Text Classification Model: Not found (using rule-based fallback)")
-
-if os.path.exists("waste_image_classifier.h5"):
-    if check_tensorflow_available():
-        st.success("✅ Image Classification Model: Available")
-    else:
-        st.warning("⚠️ Image Classification Model: File exists but TensorFlow not installed (using color-based fallback)")
-else:
-    st.warning("⚠️ Image Classification Model: Not found (using color-based fallback)")
-
 # Project description
 st.markdown("""
 ## Our mission
@@ -104,56 +76,43 @@ This application is built with:
 - **Geolocation API**: to find collection points
 - **Open Data API**: for St. Gallen waste collection data
 - **Data processing**: to analyze and classify waste
-
-## How it works?
-
-1. **Waste identification**: Our AI system analyzes your description or photo to determine the type of waste.
-
-2. **Personalized advice**: Based on the identified waste type, we provide specific advice for its sorting.
-
-3. **Locating collection points**: We help you find the closest collection points to dispose of your waste.
-
-4. **Collection dates**: We inform you of upcoming collection dates for your waste in your area.
 """)
 
 # Team section
 st.markdown("## Our Team")
 
 # Create a nicer team layout with columns
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4, col5= st.columns(5)
 
 with col1:
     st.markdown("### Project Lead")
     st.image("https://via.placeholder.com/150", width=150)
-    st.markdown("**Marco Rossi**")
-    st.markdown("Data Science & Project Management")
+    st.markdown("**Andreas l'italien**")
+    st.markdown("Porject Management")
     
 with col2:
     st.markdown("### Backend Developer")
     st.image("https://via.placeholder.com/150", width=150)
-    st.markdown("**Sophie Müller**")
+    st.markdown("**Arnaud Alves**")
     st.markdown("API Integration & Machine Learning")
     
 with col3:
     st.markdown("### Frontend Developer")
     st.image("https://via.placeholder.com/150", width=150)
-    st.markdown("**Alex Chen**")
-    st.markdown("UI/UX Design & Streamlit Development")
+    st.markdown("**Arnaud Butty**")
+    st.markdown("API Integration & Machine Learning")
 
-# Display fictional statistics on application usage
-st.markdown("## WasteWise Impact")
+with col3:
+    st.markdown("### Frontend Developer")
+    st.image("https://via.placeholder.com/150", width=150)
+    st.markdown("**Noah Pittet**")
+    st.markdown("UI/UX Design")
 
-# Use columns to display statistics side by side
-stat_col1, stat_col2, stat_col3 = st.columns(3)
-
-with stat_col1:
-    st.metric(label="Waste identified", value="12,543", delta="1,243 this week")
-
-with stat_col2:
-    st.metric(label="Collection points", value="3,879", delta="152 new")
-
-with stat_col3:
-    st.metric(label="Active users", value="853", delta="57 new")
+with col3:
+    st.markdown("### Video creation")
+    st.image("https://via.placeholder.com/150", width=150)
+    st.markdown("**Sebastien Carriag**")
+    st.markdown("Creation of the presentation video")
 
 # Project timeline
 st.markdown("## Project Timeline")
