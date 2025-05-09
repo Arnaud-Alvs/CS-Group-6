@@ -107,7 +107,7 @@ def load_image_model():
             st.info("Downloading image classification model... This may take a moment.")
             
             # Replace with your actual GitHub release URL
-            model_url = "hhttps://github.com/Arnaud-Alvs/CS-Group-6/releases/tag/V-1.0.0/waste_image_classifier.h5"
+            model_url = "https://github.com/Arnaud-Alvs/CS-Group-6/releases/tag/V-1.0.0/waste_image_classifier.h5"
             
             try:
                 import requests
