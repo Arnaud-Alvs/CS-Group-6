@@ -91,30 +91,54 @@ def load_text_model():
 # Function to load the image model
 @st.cache_resource
 def load_image_model():
-    """Load image classification model with download from GitHub release"""
+    """Load image classification model with detailed error handling"""
     try:
         if not check_tensorflow_available():
             logger.warning("TensorFlow not available")
             return None
 
         from tensorflow.keras.models import load_model
+        import os
+        import tensorflow as tf  # Import TF to check version
+        
+        # Log TensorFlow version for debugging
+        logger.info(f"TensorFlow version: {tf.__version__}")
         
         # Get the absolute path to the model file
         model_path = os.path.join(os.path.dirname(__file__), "waste_image_classifier.h5")
         
-        # If model doesn't exist, download it from GitHub release
+        # Check if file exists and log its size
+        if os.path.exists(model_path):
+            file_size = os.path.getsize(model_path)
+            logger.info(f"Model file exists at {model_path}, size: {file_size} bytes")
+            
+            # Check if file is empty or very small (likely corrupted)
+            if file_size < 1000:  # Less than 1KB
+                logger.error(f"Model file appears to be too small ({file_size} bytes), likely corrupted")
+                # Delete the corrupted file so we can try downloading again
+                os.remove(model_path)
+                logger.info(f"Deleted corrupted model file at {model_path}")
+        else:
+            logger.info(f"Model file does not exist at {model_path}, will download")
+        
+        # If model doesn't exist or was corrupted, download it
         if not os.path.exists(model_path):
             st.info("Downloading image classification model... This may take a moment.")
             
             # Replace with your actual GitHub release URL
-            model_url = "https://github.com/Arnaud-Alvs/CS-Group-6/releases/tag/V-1.0.0/waste_image_classifier.h5"
+            model_url = "https://github.com/YOUR_USERNAME/YOUR_REPO/releases/download/v1.0.0/waste_image_classifier.h5"
             
             try:
                 import requests
-                r = requests.get(model_url, stream=True)
+                r = requests.get(model_url, stream=True, timeout=60)
+                
                 if r.status_code == 200:
+                    # Log response headers for debugging
+                    logger.info(f"Download headers: {r.headers}")
+                    total_size = int(r.headers.get('content-length', 0))
+                    logger.info(f"Expected download size: {total_size} bytes")
+                    
                     with open(model_path, 'wb') as f:
-                        total_size = int(r.headers.get('content-length', 0))
                         block_size = 1024 * 1024  # 1MB chunks
                         downloaded = 0
                         
@@ -126,25 +150,61 @@ def load_image_model():
                                 f.write(chunk)
                                 downloaded += len(chunk)
                                 if total_size > 0:
-                                    progress_bar.progress(min(downloaded / total_size, 1.0))
+                                    progress = min(downloaded / total_size, 1.0)
+                                    progress_bar.progress(progress)
+                                    logger.info(f"Download progress: {progress:.2%}")
+                    
+                    # Verify the download
+                    if os.path.exists(model_path):
+                        final_size = os.path.getsize(model_path)
+                        logger.info(f"Download complete. File size: {final_size} bytes")
+                        
+                        if final_size != total_size and total_size > 0:
+                            logger.warning(f"Downloaded file size ({final_size}) doesn't match expected size ({total_size})")
                     
                     st.success("Model downloaded successfully!")
                 else:
                     st.error(f"Failed to download model: HTTP {r.status_code}")
-                    logger.error(f"Failed to download model: HTTP {r.status_code}")
+                    logger.error(f"Failed to download model: HTTP {r.status_code}, Response: {r.text}")
                     return None
             except Exception as e:
                 st.error(f"Error downloading model: {str(e)}")
-                logger.error(f"Error downloading model: {str(e)}")
+                logger.error(f"Error downloading model: {str(e)}", exc_info=True)
                 return None
+        
+        # Try loading with custom options to handle potential file format issues
+        try:
+            logger.info("Attempting to load model with standard load_model")
+            model = load_model(model_path)
+            logger.info("Model loaded successfully with standard method")
+            return model
+        except Exception as e:
+            logger.error(f"Failed to load with standard method: {str(e)}")
+            
+            # Try alternate loading method with custom options
+            try:
+                logger.info("Attempting alternate loading method with custom options")
+                model = load_model(
+                    model_path,
+                    compile=False,  # Try without compiling
+                    custom_objects=None,  # No custom layers
+                )
+                logger.info("Model loaded successfully with alternate method")
+                return model
+            except Exception as e2:
+                logger.error(f"Failed with alternate method too: {str(e2)}")
                 
-        # Load the model
-        return load_model(model_path)
+                # If all loading attempts fail, delete the file so we can try again next time
+                if os.path.exists(model_path):
+                    os.remove(model_path)
+                    logger.info(f"Deleted potentially corrupted model file at {model_path}")
+                
+                st.error("Unable to load the model file. It may be corrupted or incompatible with this version of TensorFlow.")
+                return None
 
     except Exception as e:
-        logger.error(f"Error loading image model: {str(e)}")
+        logger.error(f"Error in load_image_model: {str(e)}", exc_info=True)
         return None
-
 # Rules-based fallback prediction when ML models aren't available
 def rule_based_prediction(description):
     """Rule-based prediction for when ML models aren't available"""
