@@ -318,51 +318,40 @@ if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state
         
         submit_button = st.form_submit_button("Find collection points")
     
+    i# Update this section in pages/3_Identify_Waste.py to simplify the results display
+# Find the spinner section in the submit_button handler
+
     if submit_button:
         if not user_address:
             st.warning("Please enter your address.")
         else:
             with st.spinner(f"Searching for disposal options for {st.session_state.identified_waste_type}..."):
-                # Convert identified waste type to API format with better debugging
+                # Convert identified waste type to API format
                 ui_waste_type = st.session_state.identified_waste_type
                 api_waste_type = convert_waste_type_to_api(ui_waste_type)
-            
+                
                 # Call the handle_waste_disposal function with the API-formatted waste type
                 waste_info = handle_waste_disposal(user_address, api_waste_type)
-            
+                
                 # Store results in session state for Page 2 to use
                 st.session_state.waste_info_results = waste_info
                 st.session_state.selected_waste_type = ui_waste_type  # Use the UI waste type for display
                 st.session_state.user_address = user_address
                 st.session_state.show_results = True  # Flag to show results in Page 2
-            
-                # Show the actual waste_info message 
-                st.markdown("### Results:")
-                st.markdown(waste_info["message"])
-            
-                if waste_info["has_disposal_locations"]:
-                    points_list = waste_info['collection_points']
-                    st.markdown(f"**Found {len(points_list)} collection points**")
                 
-                # Show the first 3 collection points as a preview
-                    if len(points_list) > 0:
-                        st.markdown("### Nearest collection points:")
-                        for i, point in enumerate(points_list[:3]):
-                            st.markdown(f"**{i+1}. {point['name']}** ({point['distance']:.2f} km)")
-                            waste_types = [translate_waste_type(wt) for wt in point['waste_types']]
-                            st.markdown(f"Accepts: {', '.join(waste_types)}")
-            
-                if waste_info["has_scheduled_collection"]:
-                    next_date = waste_info["next_collection_date"]["date"].strftime('%A, %B %d, %Y')
-                    st.markdown(f"**Next collection date: {next_date}**")
-            
+                # Just show a simple success message instead of all the results
+                if waste_info["has_disposal_locations"] or waste_info["has_scheduled_collection"]:
+                    st.success(f"Found disposal options for {ui_waste_type} at {user_address}")
+                else:
+                    st.warning(f"No disposal options found for {ui_waste_type} at this location.")
+                
                 # Create a container for the button to navigate to Page 2
                 button_container = st.container()
-            
+                
                 with button_container:
                     st.markdown("### View detailed results with interactive map")
-                
-                    # Use a direct link instead of a button with switch_page
+                    
+                    # Use a direct link to Page 2
                     st.page_link(
                         "pages/2_Find_Collection_Points.py",
                         label="Go to Collection Points Page",
