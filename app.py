@@ -105,6 +105,7 @@ def load_image_model():
             st.warning("📦 Downloading trained model from Google Drive...")
 
             try:
+                import requests
                 with requests.get(model_url, stream=True) as r:
                     r.raise_for_status()
                     with open(model_path, "wb") as f:
