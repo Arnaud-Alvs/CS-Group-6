@@ -318,7 +318,7 @@ if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state
         
         submit_button = st.form_submit_button("Find collection points")
     
-    i# Update this section in pages/3_Identify_Waste.py to simplify the results display
+    # Update this section in pages/3_Identify_Waste.py to simplify the results display
 # Find the spinner section in the submit_button handler
 
     if submit_button:
