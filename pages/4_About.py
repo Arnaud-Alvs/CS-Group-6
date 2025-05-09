@@ -38,6 +38,7 @@ import requests
 import sys
 import os
 import time
+from PIL import Image 
 
 # Add the parent directory to the path to access app.py functions
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -84,8 +85,11 @@ st.markdown("## Our Team")
 # Create a nicer team layout with columns
 col1, col2, col3, col4, col5= st.columns(5)
 
+image_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "photos")
+
 with col1:
     st.markdown("### Project Lead")
+    logo = Image.open("photos/Andreas-Jonas-Lucchini.jpg")
     st.image("https://via.placeholder.com/150", width=150)
     st.markdown("**Andreas l'italien**")
     st.markdown("Porject Management")
