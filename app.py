@@ -91,18 +91,22 @@ def load_text_model():
 # Function to load the image model
 @st.cache_resource
 def load_image_model():
-    """Load image classification model from local file"""
+    """Load image classification model from absolute path"""
     try:
         if not check_tensorflow_available():
             logger.warning("TensorFlow not available")
             return None
 
         from tensorflow.keras.models import load_model
-        return load_model("waste_image_classifier.h5")
+
+        # Get the absolute path to the model file
+        model_path = os.path.join(os.path.dirname(__file__), "waste_image_classifier.h5")
+        return load_model(model_path)
 
     except Exception as e:
         logger.error(f"Error loading image model: {str(e)}")
         return None
+
 
 
 # Rules-based fallback prediction when ML models aren't available
