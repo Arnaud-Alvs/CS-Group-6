@@ -360,19 +360,10 @@ def convert_api_to_ui_waste_type(api_waste_type):
 
 # Define image class names (needed across pages)
 IMAGE_CLASS_NAMES = [
-    "Household waste 🗑", 
-    "Paper 📄", 
-    "Cardboard 📦", 
-    "Glass 🍾", 
-    "Green waste 🌿", 
-    "Cans 🥫", 
-    "Aluminium 🧴", 
-    "Foam packaging ☁", 
-    "Metal 🪙", 
-    "Textiles 👕", 
-    "Oil 🛢", 
-    "Hazardous waste ⚠"
+    "Aluminium", "Cans", "Cardboard", "Foam packaging", "Glass", "Green waste",
+    "Hazardous", "Household", "Metal", "Oil", "Paper", "Plastic", "Textiles"
 ]
+
 
 # Try importing folium and streamlit_folium upfront
 try:
