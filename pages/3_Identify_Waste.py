@@ -321,11 +321,14 @@ if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state
     # Update this section in pages/3_Identify_Waste.py to simplify the results display
 # Find the spinner section in the submit_button handler
 
+    # This is an even simpler version that only shows the button
+# Replace the entire results section with just this
+
     if submit_button:
         if not user_address:
             st.warning("Please enter your address.")
         else:
-            with st.spinner(f"Searching for disposal options for {st.session_state.identified_waste_type}..."):
+            with st.spinner(f"Finding collection options..."):
                 # Convert identified waste type to API format
                 ui_waste_type = st.session_state.identified_waste_type
                 api_waste_type = convert_waste_type_to_api(ui_waste_type)
@@ -335,27 +338,26 @@ if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state
                 
                 # Store results in session state for Page 2 to use
                 st.session_state.waste_info_results = waste_info
-                st.session_state.selected_waste_type = ui_waste_type  # Use the UI waste type for display
+                st.session_state.selected_waste_type = ui_waste_type
                 st.session_state.user_address = user_address
-                st.session_state.show_results = True  # Flag to show results in Page 2
+                st.session_state.show_results = True
                 
-                # Just show a simple success message instead of all the results
-                if waste_info["has_disposal_locations"] or waste_info["has_scheduled_collection"]:
-                    st.success(f"Found disposal options for {ui_waste_type} at {user_address}")
-                else:
-                    st.warning(f"No disposal options found for {ui_waste_type} at this location.")
+                # Only show the button to view results
+                st.markdown("""
+                <div style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
+                    <h3>Results are ready!</h3>
+                    <p>Click below to view detailed collection options.</p>
+                </div>
+                """, unsafe_allow_html=True)
                 
-                # Create a container for the button to navigate to Page 2
-                button_container = st.container()
-                
-                with button_container:
-                    st.markdown("### View detailed results with interactive map")
-                    
-                    # Use a direct link to Page 2
+                # Use a direct link to Page 2, centered and with a bigger button
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
                     st.page_link(
                         "pages/2_Find_Collection_Points.py",
-                        label="Go to Collection Points Page",
-                        icon="🗺️"
+                        label="➡️ View Collection options",
+                        icon="🗺️",
+                        use_container_width=True
                     )
 # Add this at the bottom of the find collection points section
 # but before the "Reset button" section in pages/3_Identify_Waste.py
