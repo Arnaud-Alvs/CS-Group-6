@@ -345,8 +345,7 @@ if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state
                 # Only show the button to view results
                 st.markdown("""
                 <div style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
-                    <h3>Results are ready!</h3>
-                    <p>Click below to view detailed collection options.</p>
+                    <h3>Click below to view detailed collection options.</h3>
                 </div>
                 """, unsafe_allow_html=True)
                 
@@ -356,7 +355,6 @@ if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state
                     st.page_link(
                         "pages/2_Find_Collection_Points.py",
                         label="➡️ View Collection options",
-                        icon="🗺️",
                         use_container_width=True
                     )
 # Add this at the bottom of the find collection points section
