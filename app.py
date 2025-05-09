@@ -124,334 +124,84 @@ def verify_h5_model_format(model_path):
         return False
 
 # Function to load the text model - fixed version
-def download_and_convert_model():
-    """Download model from Google Drive with Keras 3 compatibility"""
-    logger.info("Starting download_and_convert_model function")
+def download_model_from_reliable_source(model_path):
+    """Download model from a reliable source"""
     try:
-        if not check_tensorflow_available():
-            logger.warning("TensorFlow not available")
-            return None
-
-        import tensorflow as tf
-        import os
-        import requests
+        if os.path.exists(model_path) and os.path.getsize(model_path) > 1000000:
+            logger.info(f"Model file already exists at {model_path}")
+            return True
+            
+        # URL to your hosted model file
+        model_url = "https://github.com/Arnaud-Alvs/CS-Group-6/releases/tag/V-1.0.0"
         
-        # Define paths
-        h5_model_path = os.path.join(os.path.dirname(__file__), "waste_image_classifier.h5")
-        keras_model_path = os.path.join(os.path.dirname(__file__), "waste_image_classifier.keras")
+        st.info("Downloading image classification model... This may take a moment.")
         
-        # Check if Keras model already exists
-        if os.path.exists(keras_model_path):
-            logger.info(f"Keras model exists at {keras_model_path}")
-            try:
-                # Try to load the existing Keras model
-                model = tf.keras.models.load_model(keras_model_path)
-                logger.info("Successfully loaded existing Keras model")
-                return model
-            except Exception as e:
-                logger.error(f"Failed to load existing Keras model: {str(e)}")
-                # Continue to download and convert
+        response = requests.get(model_url, stream=True)
+        if response.status_code != 200:
+            logger.error(f"Failed to download model: HTTP {response.status_code}")
+            return False
+            
+        total_size = int(response.headers.get('content-length', 0))
+        logger.info(f"Starting download, expected size: {total_size} bytes")
         
-        # Download the H5 model if needed
-        if not os.path.exists(h5_model_path):
-            file_id = "17Uxb4w3ehpK0rNj0crgBT1BD7xvFxByz"
-            download_url = f"https://drive.google.com/uc?id={file_id}&export=download"
-            
-            st.info("Downloading image classification model... This may take a moment.")
-            
-            session = requests.Session()
-            response = session.get(download_url, stream=True)
-            token = None
-            
-            for key, value in response.cookies.items():
-                if key.startswith('download_warning'):
-                    token = value
-                    logger.info("Received download token for large file")
-                    break
-            
-            if token:
-                params = {'id': file_id, 'confirm': token, 'export': 'download'}
-                response = session.get("https://drive.google.com/uc", params=params, stream=True)
-            
-            total_size = int(response.headers.get('content-length', 0))
-            logger.info(f"Starting download, expected size: {total_size} bytes")
-            
-            progress_bar = st.progress(0)
-            downloaded = 0
-            
-            with open(h5_model_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=1024*1024):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        progress = min(downloaded / total_size, 1.0) if total_size > 0 else 0
-                        progress_bar.progress(progress)
-            
-            if not os.path.exists(h5_model_path) or os.path.getsize(h5_model_path) < 1000000:
-                logger.error("Download failed or file too small")
-                st.error("Failed to download model file")
-                return None
-            
-            st.success("Model downloaded successfully")
+        progress_bar = st.progress(0)
+        downloaded = 0
         
-        # Try different approaches to load the model
-        try:
-            # Try direct loading of the H5 model first
-            logger.info("Attempting to load H5 model directly")
-            try:
-                h5_model = tf.keras.models.load_model(h5_model_path, compile=False)
-                logger.info("Successfully loaded H5 model directly")
-                return h5_model
-            except Exception as e1:
-                logger.error(f"Failed to load H5 model directly: {str(e1)}")
-                
-            # If direct loading fails, try loading with custom options
-            logger.info("Attempting to load H5 model with custom options")
-            try:
-                custom_model = tf.keras.models.load_model(
-                    h5_model_path,
-                    compile=False,
-                    custom_objects={}
-                )
-                logger.info("Successfully loaded H5 model with custom options")
-                return custom_model
-            except Exception as e2:
-                logger.error(f"Failed to load H5 model with custom options: {str(e2)}")
-                
-            # If that fails, try converting to Keras format (for Keras 3)
-            logger.info("Attempting to convert from H5 to Keras format")
-            try:
-                # Import h5py to check if file is valid
-                import h5py
-                with h5py.File(h5_model_path, 'r') as h5file:
-                    # Just check if file can be opened
-                    logger.info(f"H5 file opened, keys: {list(h5file.keys())}")
-                
-                # Try using the lower-level loader
-                from tensorflow.python.keras.saving import saving_utils
-                h5_model = saving_utils.load_model_from_hdf5(h5_model_path)
-                
-                # If we got here, save in new Keras format
-                h5_model.save(keras_model_path)
-                logger.info(f"Converted H5 model to Keras format at {keras_model_path}")
-                return h5_model
-            except Exception as e3:
-                logger.error(f"Failed to convert to Keras format: {str(e3)}")
+        with open(model_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=1024*1024):
+                if chunk:
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    progress = min(downloaded / total_size, 1.0) if total_size > 0 else 0
+                    progress_bar.progress(progress)
+        
+        if os.path.exists(model_path) and os.path.getsize(model_path) > 1000000:
+            logger.info(f"Model downloaded successfully: {os.path.getsize(model_path)} bytes")
+            return True
+        else:
+            logger.error(f"Download failed or file too small: {os.path.getsize(model_path)} bytes")
+            return False
             
-            # As a last resort, try a direct low-level approach for Keras 3
-            logger.info("Attempting last resort approach for Keras 3")
-            try:
-                # Try direct import approach for Keras 3
-                from tensorflow.keras.models import model_from_json
-                from tensorflow.keras.models import load_weights
-                
-                with h5py.File(h5_model_path, 'r') as f:
-                    # Get model architecture
-                    model_json = f.attrs.get('model_config')
-                    if model_json:
-                        model_json = model_json.decode('utf-8')
-                        # Create model from JSON
-                        model = model_from_json(model_json)
-                        # Load weights
-                        model.load_weights(h5_model_path)
-                        logger.info("Successfully loaded model using model_from_json")
-                        return model
-            except Exception as e4:
-                logger.error(f"Failed with last resort approach: {str(e4)}")
-                
-            # If we've tried everything and still failed, return None
-            logger.error("All loading attempts failed")
-            return None
-            
-        except Exception as e:
-            logger.error(f"General error in model loading: {str(e)}")
-            return None
-
     except Exception as e:
-        logger.error(f"Unexpected error in download_and_convert_model: {str(e)}", exc_info=True)
-        return None
+        logger.error(f"Error downloading model: {str(e)}")
+        return False
 
 
 # In app.py, modify your load_image_model function to integrate the new approach
 @st.cache_resource
 def load_image_model():
-    """Load image model with robust fallbacks"""
-    logger.info("Starting load_image_model function")
-    
-    # First try the original approach
+    """Load image classification model - focused on reliability"""
     try:
-        model = download_and_convert_model()
-        if model is not None:
-            logger.info("Successfully loaded TensorFlow model")
-            return model
-    except Exception as e:
-        logger.error(f"Error loading TensorFlow model: {str(e)}")
-    
-    # If TensorFlow model fails, use our SimpleImageClassifier instead
-    logger.info("Using SimpleImageClassifier as fallback")
-    return SimpleImageClassifier()
-
-
-
-class SimpleImageClassifier:
-    """A simple image classifier using color histograms and hand-crafted features"""
-    
-    def __init__(self):
-        self.class_names = [
-            "Aluminium 🧴", "Cans 🥫", "Cardboard 📦", "Foam packaging ☁", 
-            "Glass 🍾", "Green waste 🌿", "Hazardous waste ⚠", "Household waste 🗑", 
-            "Metal 🪙", "Oil 🛢", "Paper 📄", "Plastic", "Textiles 👕"
-        ]
+        if not check_tensorflow_available():
+            logger.warning("TensorFlow not available")
+            return None
+            
+        import tensorflow as tf
+        import os
         
-    def extract_features(self, image):
-        """Extract color histogram and other simple features from image"""
-        # Convert to numpy array
-        img_array = np.array(image)
+        # Define model path
+        model_path = os.path.join(os.path.dirname(__file__), "waste_image_classifier.h5")
         
-        # Resize image for consistent features
-        from PIL import Image
-        resized_img = Image.fromarray(img_array).resize((100, 100))
-        img_array = np.array(resized_img)
+        # Download the model if needed
+        if not os.path.exists(model_path) or os.path.getsize(model_path) < 1000000:
+            success = download_model_from_reliable_source(model_path)
+            if not success:
+                logger.error("Failed to download model")
+                return None
         
-        # Extract average RGB values
-        avg_color = np.mean(img_array, axis=(0, 1))
-        
-        # Extract color histograms for each channel
-        r_hist, _ = np.histogram(img_array[:,:,0], bins=10, range=(0, 256))
-        g_hist, _ = np.histogram(img_array[:,:,1], bins=10, range=(0, 256))
-        b_hist, _ = np.histogram(img_array[:,:,2], bins=10, range=(0, 256))
-        
-        # Extract edge information
+        # Load the model with error handling
         try:
-            from scipy import ndimage
-            edges_x = ndimage.sobel(img_array[:,:,0], axis=0)
-            edges_y = ndimage.sobel(img_array[:,:,0], axis=1)
-            edge_magnitude = np.sqrt(edges_x**2 + edges_y**2)
-            edge_mean = np.mean(edge_magnitude)
-            edge_std = np.std(edge_magnitude)
-        except ImportError:
-            # If scipy is not available, use dummy values
-            edge_mean = 0
-            edge_std = 0
-        
-        # Combine all features
-        features = {
-            'avg_r': avg_color[0],
-            'avg_g': avg_color[1],
-            'avg_b': avg_color[2],
-            'r_hist': r_hist,
-            'g_hist': g_hist,
-            'b_hist': b_hist,
-            'edge_mean': edge_mean,
-            'edge_std': edge_std
-        }
-        
-        return features
-    
-    def predict(self, image):
-        """Predict waste category from image"""
-        features = self.extract_features(image)
-        
-        # Simple rules based on color and texture
-        avg_r, avg_g, avg_b = features['avg_r'], features['avg_g'], features['avg_b']
-        edge_mean = features['edge_mean']
-        
-        # Define color rules
-        is_green = avg_g > max(avg_r, avg_b) * 1.1
-        is_blue = avg_b > max(avg_r, avg_g) * 1.1
-        is_red = avg_r > max(avg_g, avg_b) * 1.1
-        is_bright = avg_r > 200 and avg_g > 200 and avg_b > 200
-        is_dark = avg_r < 60 and avg_g < 60 and avg_b < 60
-        is_yellow = avg_r > 200 and avg_g > 200 and avg_b < 100
-        is_gray = abs(avg_r - avg_g) < 20 and abs(avg_r - avg_b) < 20 and abs(avg_g - avg_b) < 20
-        has_edges = edge_mean > 30
-        
-        # Define rules for classification
-        if is_green:
-            category = "Green waste 🌿"
-            confidence = 0.6
-        elif is_blue and not has_edges:
-            category = "Paper 📄"
-            confidence = 0.5
-        elif is_yellow or (is_red and not has_edges):
-            category = "Cardboard 📦"
-            confidence = 0.5
-        elif is_bright and not has_edges:
-            category = "Foam packaging ☁"
-            confidence = 0.5
-        elif is_dark or (is_gray and has_edges):
-            category = "Metal 🪙"
-            confidence = 0.5
-        elif is_gray and not has_edges:
-            category = "Household waste 🗑"
-            confidence = 0.4
-        elif (avg_r > 130 and avg_g > 70 and avg_g < 120 and avg_b < 80) or (is_red and has_edges):
-            category = "Hazardous waste ⚠"
-            confidence = 0.4
-        elif (avg_b > 150 and avg_g > 150 and avg_r < 100) or (is_blue and has_edges):
-            category = "Glass 🍾"
-            confidence = 0.5
-        elif (avg_r > 160 and avg_g > 120 and avg_b < 100):
-            category = "Textiles 👕"
-            confidence = 0.4
-        elif (avg_r < 50 and avg_g < 50 and avg_b < 50) and has_edges:
-            category = "Oil 🛢"
-            confidence = 0.4
-        elif is_gray and not has_edges:
-            category = "Aluminium 🧴"
-            confidence = 0.4
-        elif (avg_r > 100 and avg_g > 100 and avg_b > 100) and is_gray:
-            category = "Cans 🥫"
-            confidence = 0.4
-        else:
-            category = "Household waste 🗑"
-            confidence = 0.3
-        
-        # Confidence is proportional to certainty of the decision
-        return category, confidence
-
-
-def predict_from_image(img, model=None, class_names=None):
-    """Predict waste type from image with multiple fallbacks"""
-    try:
-        # If model is our SimpleImageClassifier, use its predict method
-        if model is not None and isinstance(model, SimpleImageClassifier):
-            logger.info("Using SimpleImageClassifier for prediction")
-            return model.predict(img)
-        
-        # If model is None or not SimpleImageClassifier, try TensorFlow prediction
-        if model is not None and class_names is not None:
-            logger.info("Using TensorFlow model for prediction")
-            # Ensure TensorFlow is imported
-            import tensorflow as tf
-            from tensorflow.keras.preprocessing import image as keras_image
-            
-            # Preprocess image
-            img = img.resize((224, 224))
-            img_array = keras_image.img_to_array(img)
-            img_array = np.expand_dims(img_array, axis=0)
-            img_array = img_array / 255.0
-            
-            # Make prediction
-            predictions = model.predict(img_array)
-            class_idx = np.argmax(predictions[0])
-            confidence = float(np.max(predictions[0]))
-            
-            # Get class name
-            if class_idx < len(class_names):
-                category = class_names[class_idx]
-                return category, confidence
-            else:
-                logger.error(f"Invalid class index: {class_idx}, max expected: {len(class_names)-1}")
-                return simple_image_prediction(img)
-        
-        # Fallback to color-based prediction if everything else fails
-        logger.info("Image model not available, using color-based prediction")
-        return simple_image_prediction(img)
+            logger.info(f"Loading model from {model_path}")
+            model = tf.keras.models.load_model(model_path, compile=False)
+            logger.info("Model loaded successfully!")
+            return model
+        except Exception as e:
+            logger.error(f"Error loading model: {str(e)}")
+            return None
             
     except Exception as e:
-        logger.error(f"Error in image prediction: {str(e)}")
-        return simple_image_prediction(img)
+        logger.error(f"Unexpected error in load_image_model: {str(e)}")
+        return None
 # Rules-based fallback prediction when ML models aren't available
 def rule_based_prediction(description):
     """Rule-based prediction for when ML models aren't available"""
