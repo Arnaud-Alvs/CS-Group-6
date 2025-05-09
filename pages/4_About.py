@@ -96,26 +96,30 @@ with col1:
     
 with col2:
     st.markdown("### Backend Developer")
-    st.image("https://via.placeholder.com/150", width=150)
+    photo2 = Image.open("photos/Andreas-Jonas-Lucchini.jpg")
+    st.image(photo1, width=150)
     st.markdown("**Arnaud Alves**")
     st.markdown("API Integration & Machine Learning")
     
 with col3:
     st.markdown("### Frontend Developer")
-    st.image("https://via.placeholder.com/150", width=150)
+    photo3 = Image.open("photos/arnaud_butty.jpg")
+    st.image(photo3, width=150)
     st.markdown("**Arnaud Butty**")
     st.markdown("API Integration & Machine Learning")
 
-with col3:
+with col4:
     st.markdown("### Frontend Developer")
-    st.image("https://via.placeholder.com/150", width=150)
+    photo4 = Image.open("photos/noah.jpg")
+    st.image(photo4, width=150)
     st.markdown("**Noah Pittet**")
     st.markdown("UI/UX Design")
 
-with col3:
+with col5:
     st.markdown("### Video creation")
-    st.image("https://via.placeholder.com/150", width=150)
-    st.markdown("**Sebastien Carriag**")
+    photo5 = Image.open("photos/seb.jpg")
+    st.image(photo5, width=150)
+    st.markdown("**Sebastien Carriage**")
     st.markdown("Creation of the presentation video")
 
 # Project timeline
