@@ -86,42 +86,6 @@ def load_text_model():
     except Exception as e:
         logger.error(f"Error loading text model: {str(e)}")
         return None, None, None
-# Add this function to your app.py
-def verify_h5_model_format(model_path):
-    """Verify if H5 file has correct format and convert if needed"""
-    try:
-        import h5py
-        import tensorflow as tf
-        import os
-        
-        # Try to open with h5py to check format
-        try:
-            with h5py.File(model_path, 'r') as f:
-                # Check for key Keras components
-                if 'model_weights' in f or 'layer_names' in f:
-                    logger.info("File appears to be a valid HDF5 Keras model")
-                    return True
-                else:
-                    logger.warning("File is HDF5 but may not be a Keras model")
-        except Exception as e:
-            logger.error(f"Error checking HDF5 format: {str(e)}")
-            
-        # If we get here, try to load and re-save the model in a compatible format
-        logger.info("Attempting to convert model format...")
-        
-        # Try loading the model
-        model = tf.keras.models.load_model(model_path, compile=False)
-        
-        # Save in SavedModel format (more compatible)
-        saved_model_dir = os.path.join(os.path.dirname(model_path), "saved_model")
-        model.save(saved_model_dir, save_format="tf")
-        logger.info(f"Model converted and saved to {saved_model_dir}")
-        
-        return saved_model_dir
-        
-    except Exception as e:
-        logger.error(f"Model verification/conversion failed: {str(e)}")
-        return False
 
 # Function to load the text model - fixed version
 def download_model_from_reliable_source(model_path):
@@ -133,8 +97,6 @@ def download_model_from_reliable_source(model_path):
             
         # URL to your hosted model file
         model_url = "https://github.com/Arnaud-Alvs/CS-Group-6/releases/download/V-1.0.0/waste_image_classifier.h5"
-        
-        st.info("Downloading image classification model... This may take a moment.")
         
         response = requests.get(model_url, stream=True)
         if response.status_code != 200:
@@ -202,71 +164,6 @@ def load_image_model():
     except Exception as e:
         logger.error(f"Unexpected error in load_image_model: {str(e)}")
         return None
-# Rules-based fallback prediction when ML models aren't available
-def rule_based_prediction(description):
-    """Rule-based prediction for when ML models aren't available"""
-    description = description.lower()
-    
-    # Keywords for each category
-    keywords = {
-        "Household waste 🗑": ["trash", "garbage", "waste", "dirty", "leftover", "broken", "ordinary"],
-        "Paper 📄": ["paper", "newspaper", "magazine", "book", "printer", "envelope", "document"],
-        "Cardboard 📦": ["cardboard", "carton", "box", "packaging", "thick paper"],
-        "Glass 🍾": ["glass", "bottle", "jar", "container", "mirror", "window"],
-        "Green waste 🌿": ["green", "grass", "leaf", "leaves", "plant", "garden", "flower", "vegetable", "fruit"],
-        "Cans 🥫": ["can", "tin", "aluminum can", "soda", "drink can", "food can"],
-        "Aluminium 🧴": ["aluminum", "foil", "tray", "container", "lid", "wrap", "packaging"],
-        "Metal 🪙": ["metal", "iron", "steel", "scrap", "nails", "screws", "wire"],
-        "Textiles 👕": ["textile", "clothes", "fabric", "shirt", "pants", "cloth", "cotton", "wool"],
-        "Oil 🛢": ["oil", "cooking oil", "motor oil", "lubricant", "grease"],
-        "Hazardous waste ⚠": ["battery", "chemical", "toxic", "medicine", "paint", "solvent", "cleaner"],
-        "Foam packaging ☁": ["foam", "styrofoam", "polystyrene", "packing", "cushion", "insulation"]
-    }
-    
-    # Score each category
-    scores = {}
-    for category, word_list in keywords.items():
-        scores[category] = 0
-        for word in word_list:
-            if word in description:
-                scores[category] += 1
-    
-    # Find best category
-    if any(scores.values()):
-        best_category = max(scores, key=scores.get)
-        confidence = min(0.7, scores[best_category] / len(keywords[best_category]))
-        return best_category, confidence
-    else:
-        return "Household waste 🗑", 0.3  # Default category
-
-# Simple image-based prediction as fallback
-def simple_image_prediction(image):
-    """Simple color-based prediction as fallback for image classification"""
-    try:
-        # Convert to numpy array
-        img_array = np.array(image)
-        
-        # Analyze average color
-        avg_color = np.mean(img_array, axis=(0, 1))
-        
-        # Simple logic based on dominant color
-        r, g, b = avg_color[:3]
-        
-        if g > r and g > b:  # Green dominant
-            return "Green waste 🌿", 0.5
-        elif b > r and b > g:  # Blue dominant
-            return "Paper 📄", 0.4
-        elif r > g and r > b:  # Red/Brown dominant
-            return "Cardboard 📦", 0.4
-        elif r > 200 and g > 200 and b > 200:  # Very light
-            return "Foam packaging ☁", 0.4
-        elif r < 50 and g < 50 and b < 50:  # Very dark
-            return "Metal 🪙", 0.4
-        else:
-            return "Household waste 🗑", 0.3
-    except Exception as e:
-        logger.error(f"Error in color-based prediction: {str(e)}")
-        return "Household waste 🗑", 0.3
 
 # Enhanced predict_from_text function with fallback
 def predict_from_text(description, model=None, vectorizer=None, encoder=None):

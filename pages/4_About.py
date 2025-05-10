@@ -90,35 +90,35 @@ image_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "photos")
 with col1:
     st.markdown("### Project Lead")
     photo1 = Image.open("photos/Andreas-Jonas-Lucchini.jpg")
-    st.image(photo1, width=150)
+    st.image(photo1, width=150, height=150)
     st.markdown("**Andreas l'italien**")
     st.markdown("Porject Management")
     
 with col2:
     st.markdown("### Backend Developer")
     photo2 = Image.open("photos/Andreas-Jonas-Lucchini.jpg")
-    st.image(photo1, width=150)
+    st.image(photo1, width=150, height=150)
     st.markdown("**Arnaud Alves**")
     st.markdown("API Integration & Machine Learning")
     
 with col3:
     st.markdown("### Frontend Developer")
     photo3 = Image.open("photos/arnaud_butty.jpg")
-    st.image(photo3, width=150)
+    st.image(photo3, width=150, height=150)
     st.markdown("**Arnaud Butty**")
     st.markdown("API Integration & Machine Learning")
 
 with col4:
     st.markdown("### Frontend Developer")
     photo4 = Image.open("photos/noah.jpg")
-    st.image(photo4, width=150)
+    st.image(photo4, width=150, height=150)
     st.markdown("**Noah Pittet**")
     st.markdown("UI/UX Design")
 
 with col5:
     st.markdown("### Video creation")
     photo5 = Image.open("photos/seb.jpg")
-    st.image(photo5, width=150)
+    st.image(photo5, width=150, height=150)
     st.markdown("**Sebastien Carriage**")
     st.markdown("Creation of the presentation video")
 
