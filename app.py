@@ -95,9 +95,7 @@ def download_model_from_reliable_source(model_path):
             return True
             
         # URL to your hosted model file
-        model_url = "https://github.com/Arnaud-Alvs/CS-Group-6/releases/download/V-1.0.0/waste_image_classifier.h5"
-        
-        st.info("Downloading image classification model... This may take a moment.")
+        model_url = "https://github.com/Arnaud-Alvs/CS-Group-6/releases/download/V-1.0.0/waste_image_classifier.h5"       
         
         response = requests.get(model_url, stream=True)
         if response.status_code != 200:
