@@ -1,3 +1,7 @@
+# This Streamlit-based application allows users to classify waste items using either text or image input.
+# It also provides location-based collection points and disposal instructions based on waste type.
+
+# Import required libraries
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -10,12 +14,12 @@ import os
 import sys
 import logging
 
-# Configure error handling and logging
+# Configure logging for monitoring and debugging
 logging.basicConfig(level=logging.INFO, 
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Import functions from location_api.py
+# Here, we import the functions from location_api.py which calls the collection points api.
 try:
     from location_api import (
         get_coordinates,
