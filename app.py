@@ -105,18 +105,7 @@ def download_model_from_reliable_source(model_path):
             return False
             
         total_size = int(response.headers.get('content-length', 0))
-        logger.info(f"Starting download, expected size: {total_size} bytes")
-        
-        progress_bar = st.progress(0)
-        downloaded = 0
-        
-        with open(model_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=1024*1024):
-                if chunk:
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    progress = min(downloaded / total_size, 1.0) if total_size > 0 else 0
-                    progress_bar.progress(progress)
+        logger.info(f"Starting download, expected size: {total_size} bytes")       
         
         if os.path.exists(model_path) and os.path.getsize(model_path) > 1000000:
             logger.info(f"Model downloaded successfully: {os.path.getsize(model_path)} bytes")
