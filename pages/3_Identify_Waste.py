@@ -53,8 +53,6 @@ try:
         load_image_model,
         predict_from_text,
         predict_from_image,
-        rule_based_prediction,
-        simple_image_prediction,
         convert_waste_type_to_api,
         handle_waste_disposal,
         translate_waste_type,

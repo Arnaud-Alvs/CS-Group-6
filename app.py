@@ -1,7 +1,3 @@
-# This Streamlit-based application allows users to classify waste items using either text or image input.
-# It also provides location-based collection points and disposal instructions based on waste type.
-
-# Import required libraries
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -14,12 +10,12 @@ import os
 import sys
 import logging
 
-# Configure logging for monitoring and debugging
+# Configure error handling and logging
 logging.basicConfig(level=logging.INFO, 
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Here, we import the functions from location_api.py which calls the collection points api.
+# Import functions from location_api.py
 try:
     from location_api import (
         get_coordinates,
@@ -90,7 +86,6 @@ def load_text_model():
     except Exception as e:
         logger.error(f"Error loading text model: {str(e)}")
         return None, None, None
-
 # Function to load the text model - fixed version
 def download_model_from_reliable_source(model_path):
     """Download model from a reliable source"""
@@ -101,6 +96,8 @@ def download_model_from_reliable_source(model_path):
             
         # URL to your hosted model file
         model_url = "https://github.com/Arnaud-Alvs/CS-Group-6/releases/download/V-1.0.0/waste_image_classifier.h5"
+        
+        st.info("Downloading image classification model... This may take a moment.")
         
         response = requests.get(model_url, stream=True)
         if response.status_code != 200:
