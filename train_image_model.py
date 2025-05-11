@@ -3,9 +3,9 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
 
-# === STEP 1: Point to your folder on Desktop
+# 1. Points to the desktop to search for the folder
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-train_dir = os.path.join(desktop_path, "waste_image_dataset")  # <- Make sure folder is named like this
+train_dir = os.path.join(desktop_path, "waste_image_dataset")  # 1. points to this exact folder on the desktop
 
 # === STEP 2: Exact folder names (must match your subfolder names inside the dataset)
 folder_names = [
