@@ -34,18 +34,19 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
     Get latitude and longitude from address using OpenStreetMap Nominatim API.
     Strictly enforces results within St. Gallen city boundaries.
     """
+# Define St. Gallen city boundaries (bounding box)
+    ST_GALLEN_BOUNDS = {
+        "min_lat": 47.3600,  # South boundary
+        "max_lat": 47.4800,  # North boundary
+        "min_lon": 9.3000,   # West boundary
+        "max_lon": 9.4500    # East boundary
+    }
+
     try:
         import time
         # Add a small delay to avoid hitting rate limits
         time.sleep(1)
         
-        # Define St. Gallen city boundaries (bounding box)
-        ST_GALLEN_BOUNDS = {
-            "min_lat": 47.3600,  # South boundary
-            "max_lat": 47.4800,  # North boundary
-            "min_lon": 9.3000,   # West boundary
-            "max_lon": 9.4500    # East boundary
-        }
         
         base_url = "https://nominatim.openstreetmap.org/search"
 
@@ -629,10 +630,6 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
         collection_date_str = next_date['date'].strftime('%A, %B %d, %Y')
         collection_time_str = next_date.get('time', '')
         
-        results["message"] = (
-            f"{waste_type_display} will be collected on {collection_date_str} {collection_time_str}. "
-            f"This waste type is typically collected directly from homes in your area."
-        )
     else:
         # Try to check if this waste type is typically collected
         typical_collection_types = ["Papier", "Karton", "Kehricht", "Grüngut"]
@@ -657,22 +654,3 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
             )
     
     return results
-
-# Note: The original code included endpoints as constants at the top.
-# We will keep them there for consistency.
-def check_api_status():
-    """
-    Checks the status of the St. Gallen Open Data API.
-    """
-    try:
-        # Try a simple request to the base API URL
-        response = requests.get(BASE_API_URL, timeout=10)
-        if response.status_code == 200:
-            logger.info("Base API URL is accessible")
-            return True
-        else:
-            logger.warning(f"Base API URL returned status code {response.status_code}")
-            return False
-    except Exception as e:
-        logger.error(f"Could not access base API URL: {str(e)}")
-        return False

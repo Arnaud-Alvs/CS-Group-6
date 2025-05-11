@@ -1,4 +1,12 @@
+"""
+Find Collection Points page for the WasteWise application.
+"""
+
 import streamlit as st
+import sys
+import os
+import folium 
+from streamlit_folium import st_folium
 
 # Page configuration
 st.set_page_config(
@@ -8,25 +16,18 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Hide ALL built-in Streamlit navigation elements
+# Hide Streamlit navigation elements
 hide_streamlit_style = """
 <style>
-/* Hide the default sidebar navigation */
 [data-testid="stSidebarNavItems"] {
     display: none !important;
 }
-
-/* Hide the expand/collapse arrow */
 button[kind="header"] {
     display: none !important;
 }
-
-/* Remove the extra padding at the top of sidebar */
 section[data-testid="stSidebar"] > div {
     padding-top: 1rem !important;
 }
-
-/* Optional: Hide app name from sidebar header if present */
 .sidebar-content .sidebar-collapse-control {
     display: none !important;
 }
@@ -34,21 +35,12 @@ section[data-testid="stSidebar"] > div {
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-
-import pandas as pd
-import numpy as np
-import random
-import sys
-import os
-import folium 
-from streamlit_folium import st_folium
-
 # Add the parent directory to the path to access app.py functions
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import required functions from the root app module
 try:
-    from app import (
+    from location_api import (
         get_coordinates,
         find_collection_points,
         fetch_collection_dates,
@@ -85,6 +77,7 @@ coming_from_identification = (
     hasattr(st.session_state, 'identified_waste_type') and
     st.session_state.identified_waste_type is not None
 )
+
 if not st.session_state.show_results:
     st.markdown(
         """
@@ -95,19 +88,13 @@ if not st.session_state.show_results:
     )
 
 if not st.session_state.show_results or st.checkbox("Search for a different waste type or address"):
-
-# --- User Input Section ---
-# Get available waste types from location_api
+    # Get available waste types
     available_waste_types_german = get_available_waste_types()
-# Translate waste types for the dropdown
     available_waste_types_english = [translate_waste_type(wt) for wt in available_waste_types_german]
-
-# Create a mapping from English back to German for API calls
     waste_type_mapping = dict(zip(available_waste_types_english, available_waste_types_german))
 
-# Button to trigger the search
+    # Input form
     with st.form(key="waste_search_form"):
-    # Move your input fields here
         selected_waste_type_english = st.selectbox(
             "Select Waste Type:",
             options=available_waste_types_english,
@@ -120,10 +107,9 @@ if not st.session_state.show_results or st.checkbox("Search for a different wast
             help="Enter your address, it must include a street name and number."
         )
 
-        # Form submit button
         submit_button = st.form_submit_button("Find Information")
 
-# Process form submission
+    # Process form submission
     if submit_button:
         if not user_address:
             st.warning("Please enter your address.")
@@ -139,19 +125,20 @@ if not st.session_state.show_results or st.checkbox("Search for a different wast
                 st.session_state.selected_waste_type = selected_waste_type_english
                 st.session_state.user_address = user_address
             
-                # Use the combined function for waste disposal information
+                # Get waste disposal information
                 waste_info = handle_waste_disposal(user_address, selected_waste_type_german)
             
                 # Store results in session state
                 st.session_state.waste_info_results = waste_info
                 st.session_state.show_results = True
                 st.rerun()
+
 # Display results section - only if we have data
 if 'show_results' in st.session_state and st.session_state.show_results:
     # Clear separation from the input form
     st.markdown("---")
     
-    # Create a container for the results that won't be affected by other changes
+    # Results container
     results_container = st.container()
     
     with results_container:
@@ -162,29 +149,28 @@ if 'show_results' in st.session_state and st.session_state.show_results:
         st.subheader("Search Results")
         st.markdown(waste_info["message"])
         
-        # Display collection points and map in separate columns if available
+        # Display collection points and map if available
         if waste_info["has_disposal_locations"]:
             st.markdown(f"### Nearest Collection Points for {selected_waste_type_english}")
             
             # Get user coordinates for the map
             user_coords = get_coordinates(user_address)
             
-            # Create a 2-column layout
             if user_coords:
                 map_col, info_col = st.columns([3, 2])
                 
                 with map_col:
                     st.caption("Hover over markers for info, click for details.")
                     
-                    # Create the map in its own container
+                    # Create interactive map
                     interactive_map = create_interactive_map(user_coords, waste_info["collection_points"])
                     
-                    # Use the fixed st_folium call
+                    # Display map
                     st_folium(
                         interactive_map, 
-                        width=None,  # Full width
+                        width=None,
                         height=400,
-                        returned_objects=[],  # This prevents reruns
+                        returned_objects=[],
                         key=f"map_{user_address}_{selected_waste_type_english}"
                     )
                 
@@ -200,11 +186,11 @@ if 'show_results' in st.session_state and st.session_state.show_results:
         if waste_info["has_scheduled_collection"]:
             next_collection = waste_info["next_collection_date"]
             
-            # Create a nice collection date display
+            # Format collection date
             collection_date = next_collection['date'].strftime('%A, %B %d, %Y')
             collection_time = next_collection.get('time', '')
             
-            # Use a success message for the date
+            # Display in a highlighted box
             date_html = f"""
             <div style="background-color: #d4edda; border-radius: 5px; padding: 15px; margin-bottom: 15px;">
                 <h3 style="color: #155724; margin-top: 0;">Next Collection: {collection_date}</h3>
@@ -214,7 +200,6 @@ if 'show_results' in st.session_state and st.session_state.show_results:
             </div>
             """
             st.markdown(date_html, unsafe_allow_html=True)
-        
 
 # Set up sidebar
 with st.sidebar:

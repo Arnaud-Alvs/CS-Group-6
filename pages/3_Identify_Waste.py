@@ -53,8 +53,6 @@ try:
         load_image_model,
         predict_from_text,
         predict_from_image,
-        rule_based_prediction,
-        simple_image_prediction,
         convert_waste_type_to_api,
         handle_waste_disposal,
         translate_waste_type,
@@ -86,20 +84,6 @@ and learn how to dispose of it properly. You can either describe your waste or u
 # Check if ML models are available and load them once
 text_model, text_vectorizer, text_encoder = load_text_model()
 image_model = load_image_model()
-
-# Show model status
-col1, col2 = st.columns(2)
-with col1:
-    if text_model is not None:
-        st.success("✅ Text analysis available")
-    else:
-        st.warning("⚠️ Text analysis: Using rule-based fallback")
-        
-with col2:
-    if image_model is not None:
-        st.success("✅ Image analysis available")
-    else:
-        st.warning("⚠️ Image analysis: Using color-based fallback")
 
 # Create tabs for different input methods
 tab1, tab2 = st.tabs(["Describe your waste", "Upload a photo"])
@@ -317,9 +301,6 @@ if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state
         )
         
         submit_button = st.form_submit_button("Find collection points")
-    
-    # Update this section in pages/3_Identify_Waste.py to simplify the results display
-# Find the spinner section in the submit_button handler
 
     # This is an even simpler version that only shows the button
 # Replace the entire results section with just this
