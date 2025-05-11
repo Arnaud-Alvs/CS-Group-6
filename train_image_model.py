@@ -36,7 +36,7 @@ val_gen = datagen.flow_from_directory(
     classes=folder_names
 )
 
-# 4. 
+# 4. creation of a sequential model
 model = Sequential([
     Conv2D(32, (3, 3), activation='relu', input_shape=(224, 224, 3)),
     MaxPooling2D(2, 2),
@@ -47,12 +47,12 @@ model = Sequential([
     Dense(len(folder_names), activation='softmax')
 ])
 
-# === STEP 5: Compile the model
+# 5. compiles the model
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-# === STEP 6: Train the model
+# 6. trains the model
 model.fit(train_gen, validation_data=val_gen, epochs=10)
 
-# === STEP 7: Save the model
+# 7. saves the model
 model.save("waste_image_classifier.h5")
 print("✅ Training complete! Model saved as waste_image_classifier.h5")
