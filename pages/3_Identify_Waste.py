@@ -306,35 +306,33 @@ if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state
         
         submit_button = st.form_submit_button("Find collection points")
 
-    # This is an even simpler version that only shows the button
-# Replace the entire results section with just this
-
+    # checks if the user has entered an address and if so, calls the API to find collection points
     if submit_button:
         if not user_address:
             st.warning("Please enter your address.")
         else:
             with st.spinner(f"Finding collection options..."):
-                # Convert identified waste type to API format
+                # converts identified waste type to API format
                 ui_waste_type = st.session_state.identified_waste_type
                 api_waste_type = convert_waste_type_to_api(ui_waste_type)
                 
-                # Call the handle_waste_disposal function with the API-formatted waste type
+                # calls the handle_waste_disposal function with the API fomatted waste type
                 waste_info = handle_waste_disposal(user_address, api_waste_type)
                 
-                # Store results in session state for Page 2 to use
+                # stores results in session state for Page 2 to use
                 st.session_state.waste_info_results = waste_info
                 st.session_state.selected_waste_type = ui_waste_type
                 st.session_state.user_address = user_address
                 st.session_state.show_results = True
                 
-                # Only show the button to view results
+                # shows the button to view results
                 st.markdown("""
                 <div style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
                     <h3>Click below to view detailed collection options.</h3>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Use a direct link to Page 2, centered and with a bigger button
+                # shows a direct link to Page and with a big button
                 col1, col2, col3 = st.columns([1, 2, 1])
                 with col2:
                     st.page_link(
