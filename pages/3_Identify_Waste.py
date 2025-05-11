@@ -342,10 +342,8 @@ if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state
                         label="➡️ View Collection options",
                         use_container_width=True
                     )
-# Add this at the bottom of the find collection points section
-# but before the "Reset button" section in pages/3_Identify_Waste.py
 
-# Reset button at the bottom of the page
+# shows the reset button at the bottom of the page
 if st.session_state.identified_waste_type:
     if st.button("Start Over", key="start_over"):
         # Reset all session state variables
@@ -354,19 +352,19 @@ if st.session_state.identified_waste_type:
         st.session_state.search_for_collection = False
         st.rerun()
 
-# Set up sidebar
+# sets up sidebar
 with st.sidebar:
     st.title("WasteWise")
     st.markdown("Your smart recycling assistant")
     
-    # Navigation
+    # displays the navigation menu
     st.markdown("## Navigation")
     st.page_link("pages/1_Home.py", label="Home", icon="🏠")
     st.page_link("pages/2_Find_Collection_Points.py", label="Find Collection Points", icon="🚮")
     st.page_link("pages/3_Identify_Waste.py", label="Identify Waste", icon="🔍")
     st.page_link("pages/4_About.py", label="About", icon="ℹ️")
     
-    # Useful links
+    # displays useful links
     st.markdown("## Useful Links")
     st.markdown("[Complete recycling guide](https://www.stadt.sg.ch/home/umwelt-energie/entsorgung.html)")
     st.markdown("[Reducing waste in everyday life](https://www.bafu.admin.ch/bafu/en/home/topics/waste/guide-to-waste-a-z/avoiding-waste.html)")
