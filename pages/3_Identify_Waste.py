@@ -1,6 +1,7 @@
+# imports streamlit 
 import streamlit as st
 
-# Page configuration must be the FIRST Streamlit command
+# sets up the page configuration, with a title, icon, and layout
 st.set_page_config(
     page_title="WasteWise - Identify Waste",
     page_icon="🔍",
@@ -8,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Hide ALL built-in Streamlit navigation elements
+# hides the default sidebar navigation and expands the sidebar using CSS 
 hide_streamlit_style = """
 <style>
 /* Hide the default sidebar navigation */
@@ -34,6 +35,7 @@ section[data-testid="stSidebar"] > div {
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
+# import necessary libraries
 import pandas as pd
 import numpy as np
 from PIL import Image
@@ -41,10 +43,10 @@ import requests
 import sys
 import os
 
-# Add the parent directory to the path to access app.py functions
+# makes sure the app can find the modules in the parent directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Import required functions from the root app module
+# tries importing the necessary functions from the app module, if it fails, it shows an error message and stops the app
 try:
     from app import (
         check_ml_models_available,
@@ -62,32 +64,33 @@ except ImportError as e:
     st.error(f"Failed to import required functions: {str(e)}")
     st.stop()
 
-# ✅ Override IMAGE_CLASS_NAMES with correct emoji-labeled version
+# defines the class names for the image classification model
 IMAGE_CLASS_NAMES = [
     "Aluminium 🧴", "Cans 🥫", "Cardboard 📦", "Foam packaging ☁", "Glass 🍾", "Green waste 🌿",
     "Hazardous waste ⚠", "Household waste 🗑", "Metal 🪙", "Oil 🛢", "Paper 📄", "Plastic", "Textiles 👕"
 ]
 
-# Initialize session state for waste identification
+# initializes app for storing identification results
 if 'identified_waste_type' not in st.session_state:
     st.session_state.identified_waste_type = None
     st.session_state.waste_confidence = None
     st.session_state.search_for_collection = False
 
-# Page header
+# shows the page header and a brief description
 st.title("🔍 Identify Your Waste")
 st.markdown("""
 Use our AI-powered waste identification system to determine what type of waste you have
 and learn how to dispose of it properly. You can either describe your waste or upload a photo.
 """)
 
-# Check if ML models are available and load them once
+# loads the machine learning models for text and image classification
 text_model, text_vectorizer, text_encoder = load_text_model()
 image_model = load_image_model()
 
-# Create tabs for different input methods
+# creates 2 tabs for the user to either describe their waste or upload a photo
 tab1, tab2 = st.tabs(["Describe your waste", "Upload a photo"])
 
+# sets up the first tab for the text description method 
 with tab1:
     st.markdown("### Describe your waste")
     waste_description = st.text_area(
@@ -117,12 +120,12 @@ with tab1:
                     else:
                         st.session_state.search_for_collection = True
                         st.rerun()
-
+#sets up the second tab for the image upload method
 with tab2:
     st.markdown("### Upload a photo of your waste")
     uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
     
-    # Display uploaded image
+    # display uploaded image
     if uploaded_file is not None:
         try:
             image = Image.open(uploaded_file)
@@ -148,23 +151,24 @@ with tab2:
         except Exception as e:
             st.error(f"Error processing image: {e}")
 
-# Display identification results and sorting advice
+# displays the results of the identification
 if st.session_state.identified_waste_type:
     st.markdown("---")
     st.header(f"Results: {st.session_state.identified_waste_type}")
     
-    # Format confidence as percentage
+    # displays the confidence level of the prediction
     confidence_pct = st.session_state.waste_confidence * 100
     st.progress(min(confidence_pct/100, 1.0), text=f"Confidence: {confidence_pct:.1f}%")
     
-    # Show sorting advice for the predicted category
+    # shows sorting advice based on the identified waste type
     if st.session_state.identified_waste_type != "Unknown 🚫":
         st.subheader("Waste sorting advice")
         
-        # Extract the base category without emoji
+        # extracts the base category without emoji
         category = st.session_state.identified_waste_type
         base_category = category.split(" ")[0] if " " in category else category
         
+        # defines sorting advice for different waste types
         sorting_advice = {
             "Household": {
                 "bin": "General waste bin (gray/black)",
@@ -273,7 +277,7 @@ if st.session_state.identified_waste_type:
             }
         }
         
-        # Find matching advice
+        # finds matching advice
         for key, advice in sorting_advice.items():
             if key in base_category:
                 st.write(f"**Disposal bin:** {advice['bin']}")
@@ -282,15 +286,15 @@ if st.session_state.identified_waste_type:
                     st.write(f"- {tip}")
                 break
         else:
-            # Default advice if no match
+            # shows the default advice if no waste type match
             st.write("Please check your local waste management guidelines for this specific item.")
 
-# Offer to search for collection points if a valid waste type was identified
+# offers the user to search for collection points if a valid waste type was identified
 if st.session_state.identified_waste_type != "Unknown 🚫" and st.session_state.search_for_collection:
     st.markdown("---")
     st.subheader("Find collection points")
     
-    # Convert identified waste type to API format
+    # converts the identified waste type to API format
     api_waste_type = convert_waste_type_to_api(st.session_state.identified_waste_type)
     
     with st.form(key="identified_waste_form"):
@@ -371,4 +375,4 @@ with st.sidebar:
 
 # Footer
 st.markdown("---")
-st.markdown("© 2025 WasteWise - University Project | [Contact](mailto:contact@wastewise.example.com) | [Legal notice](https://example.com)")
+st.markdown("© 2025 WasteWise - University Project 
