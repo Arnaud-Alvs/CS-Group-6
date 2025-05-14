@@ -96,7 +96,7 @@ with col1:
     
 with col2:
     st.markdown("### Backend Developer")
-    photo2 = Image.open("photos/Arnaud-Alves-photo.jpg")
+    photo2 = Image.open("photos/Arnaud_Alves_photo.jpg")
     st.image(photo1, width=150)
     st.markdown("**Arnaud Alves**")
     st.markdown("API Integration & Machine Learning")
