@@ -46,7 +46,7 @@ Proposition par le pitt :
 
 # ♻️ Smart Waste Classification App
 
-This project is a Streamlit web application that helps users identify the appropriate waste category for an item, based on either a **text description** or an **image**. Additionally, the app offers tools like a **BAC (Blood Alcohol Content) calculator** and a **collection point locator** based on user location.
+This project is a Streamlit web application that helps users identify the appropriate waste category for an item, based on either a **text description** or an **image**. Additionally, the app offers tools like a **collection point locator** based on user location to help them find the nearest location or the closest date for the next collect.
 
 ---
 
@@ -55,7 +55,6 @@ This project is a Streamlit web application that helps users identify the approp
 - 📝 **Text-based Waste Classification**: Users can describe an item in text (e.g., "pizza box") and receive its waste category.
 - 📷 **Image-based Recognition**: Upload a photo of the waste, and the app suggests its type.
 - 🧭 **Collection Point Finder**: Locate nearby recycling/disposal locations for a specific waste type.
-- 🚗 **Alcohol Tester Tool**: Calculates BAC and indicates whether the user is safe to drive.
 - 🗺️ **Interactive Map**: View and interact with waste collection points on a map.
 
 ---
@@ -97,10 +96,10 @@ This project is a Streamlit web application that helps users identify the approp
 ├── text_classifier.py         # Classifies text inputs
 ├── .streamlit/                # Streamlit configuration
 ├── pages/
-│   ├── 1_Home.py              # Home page
-│   ├── 2_Find_Collection_Points.py
-│   ├── 3_Identify_Waste.py
-│   ├── 4_Alcoholtester.py
+  ├── 1_Home.py              # Home page
+  ├── 2_Find_Collection_Points.py
+  ├── 3_Identify_Waste.py
+  ├── 4_Alcoholtester.py
 ├── waste_classifier.pkl       # Saved ML model
 ├── waste_vectorizer.pkl       # TF-IDF vectorizer
 ├── waste_encoder.pkl          # Label encoder
@@ -138,17 +137,19 @@ streamlit run app.py
 ## 🤝 Credits
 
 Developed by:
-- Alves Arnaud
-- Noah
+- Arnaud Alves
 - Andreas Lucchini
+- Arnaud Butty
+- Sébastien Cariage
+- Noah Pittet
 
 With support from:
-- Course material (Lecture 8, etc.)
+- Course material and tutorials
 - ChatGPT (OpenAI) for code debugging and ideas
+- Claude AI for code debugging and ideas
 
 ---
 
 ## 📜 License
 
 This project is for educational purposes only and not intended for commercial use.
-
