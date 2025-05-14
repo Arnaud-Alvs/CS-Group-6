@@ -9,7 +9,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Distribution / packaging
+# Ignore the files that are created when we create a new software, those files are created when we turn code into app.
 dist/
 build/
 *.egg-info/
