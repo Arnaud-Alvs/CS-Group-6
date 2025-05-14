@@ -1,3 +1,8 @@
+# This API module connects our application to the St. Gallen city open data services
+# We use it to obtain information about waste collection points and pickup schedules
+# The API requires making HTTP requests to retrieve data from the city's endpoints
+# We import various libraries to handle data processing, calculations, and visualization
+
 import requests
 import json
 import pandas as pd
@@ -9,10 +14,10 @@ import re # Import regex module
 import folium
 from streamlit_folium import st_folium
 
-# Configure logging for this module
+# Configure logging for this module to track events and errors
 import logging
 logger = logging.getLogger(__name__)
-# Prevent duplicate handlers if Streamlit re-runs the script
+# Prevent duplicate handlers if Streamlit re-runs the script (a common issue with Streamlit's execution model)
 if not logger.handlers:
     handler = logging.StreamHandler()
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -21,20 +26,26 @@ if not logger.handlers:
     logger.setLevel(logging.INFO)
 
 
-# Base API URL
+# Base API URL - This is the root endpoint for all St. Gallen city data services
+# Using a constant API helps maintain consistency and makes future URL changes easier
 BASE_API_URL = "https://daten.stadt.sg.ch"
 
-# API Endpoints
+# Function to get geographic coordinates (latitude, longitude) from an address
+# Collection points are physical locations where waste can be dropped off
+# Collection dates are scheduled pickup times for different waste types
 COLLECTION_POINTS_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/sammelstellen/records"
 COLLECTION_DATES_ENDPOINT = f"{BASE_API_URL}/api/explore/v2.1/catalog/datasets/abfuhrdaten-stadt-stgallen/records"
 
 # Function to get geographic coordinates (latitude, longitude) from an address
+# This is a function that converts user text input into map coordinates
+# We use OpenStreetMap's free Nominatim geocoding service with proper attribution
 def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dict[str, float]]:
     """
     Get latitude and longitude from address using OpenStreetMap Nominatim API.
     Strictly enforces results within St. Gallen city boundaries.
     """
 # Define St. Gallen city boundaries (bounding box)
+# This prevents the app from returning results outside our service area
     ST_GALLEN_BOUNDS = {
         "min_lat": 47.3600,  # South boundary
         "max_lat": 47.4800,  # North boundary
@@ -45,18 +56,22 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
     try:
         import time
         # Add a small delay to avoid hitting rate limits
+        # Without this delay, our application might be blocked for excessive requests
         time.sleep(1)
         
         
         base_url = "https://nominatim.openstreetmap.org/search"
 
         # Add "St. Gallen" to the address if not already present
+        # This improves geocoding accuracy by providing context to the API
+
         if "st. gallen" not in address.lower() and "st.gallen" not in address.lower().replace(" ", ""):
             search_address = f"{address}, St. Gallen, Switzerland"
         else:
             search_address = address
             
         # Use q parameter with full address including city
+        # These are additional parameters improve result quality and provide address details
         params = {
             "q": search_address,
             "format": "json",
@@ -76,19 +91,22 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
 
         data = response.json()
         
-        # If no results found
+        
+        # If no results found, inform the user with a helpful error message
         if not data:
             st.warning(f"Could not find coordinates for address: {address}. Please try a more specific address.")
             logger.warning(f"No results found for address: {search_address}")
             return None
             
         # Check each result to find one within St. Gallen boundaries
+        # We might get multiple results, so we need to verify each one
         for result in data:
             try:
                 lat = float(result["lat"])
                 lon = float(result["lon"])
                 
                 # Check if coordinates are within St. Gallen boundaries
+                # This is our geographic filter to ensure results are relevant
                 if (ST_GALLEN_BOUNDS["min_lat"] <= lat <= ST_GALLEN_BOUNDS["max_lat"] and 
                     ST_GALLEN_BOUNDS["min_lon"] <= lon <= ST_GALLEN_BOUNDS["max_lon"]):
                     
