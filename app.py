@@ -1,4 +1,9 @@
-#imports the necessary libraries 
+# This API module connects our application to the St. Gallen city open data services
+# We use it to obtain information about waste collection points and pickup schedules
+# The API requires making HTTP requests to retrieve data from the city's endpoints
+# We import various libraries to handle data processing, calculations, and visualization
+
+# We import the necessary libraries 
 import streamlit as st # to build the web app
 import pandas as pd # to handle data
 import numpy as np # for numerical operations
@@ -11,7 +16,8 @@ import os # to file system operations
 import sys # to handle system operations
 import logging # to use app wide logging
 
-# sets up the logging configuration
+# Configure logging for this module to track events and errors
+# Proper logging is essential for diagnosing issues in production environments
 logging.basicConfig(level=logging.INFO, 
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
