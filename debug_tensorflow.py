@@ -1,6 +1,5 @@
-# This file is a diagnostic tool, it enables us to check if our system is ready to run artificial intelligence models using TensorFlow.
-# It also tests if a small model can be created, saved, loaded, and used to make a prediction.
-# We had to create this file because Arnaud Alves had some issues with the artificial intelligence model, Claude AI suggested to creat this file.
+# This file is a diagnostic tool, it enables us to check if our system is ready to run our AI models using TensorFlow.
+# We had to create this file because Arnaud Alves had some issues with the AI model, Claude AI suggested to create this file.
 
 # We import streamlit, the tool we use to build our webapp
 import streamlit as st
