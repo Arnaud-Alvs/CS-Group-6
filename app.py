@@ -1,4 +1,4 @@
-# We import the necessary libraries 
+# We import the necessary libraries
 import streamlit as st # to build the web app
 import pandas as pd # to handle data
 import numpy as np # for numerical operations
