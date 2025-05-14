@@ -1,3 +1,7 @@
+# This script allows the application to use a machine learning model that was already trained to classify waste items based on a text description (e.g., “pizza box” → “cardboard”)
+# It loads three files (the trained model that can make predictions, a vectorizer that transforms text into numbers and a label encoder that decodes the model's output into a human-readable category)
+# The function classify_text is created so that we can reuse this model without having to use all the text again
+
 import pickle
 import os
 
