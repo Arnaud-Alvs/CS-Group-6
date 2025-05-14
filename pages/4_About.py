@@ -122,52 +122,6 @@ with col5:
     st.markdown("**Sebastien Carriage**")
     st.markdown("Creation of the presentation video")
 
-# Project timeline
-st.markdown("## Project Timeline")
-
-# Create a more visual timeline
-timeline_data = [
-    {"date": "January 2025", "milestone": "Project Inception", "description": "Initial concept development and team formation"},
-    {"date": "February 2025", "milestone": "Data Collection", "description": "API integration and waste dataset compilation"},
-    {"date": "March 2025", "milestone": "Model Development", "description": "Training of waste classification models"},
-    {"date": "April 2025", "milestone": "Beta Release", "description": "Internal testing and bug fixing"},
-    {"date": "May 2025", "milestone": "Public Launch", "description": "Official release of WasteWise application"}
-]
-
-# Display timeline as a table with custom styling
-st.markdown("""
-<style>
-    .timeline-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    .timeline-table td {
-        padding: 15px;
-        border-bottom: 1px solid #f0f2f6;
-    }
-    .milestone {
-        font-weight: bold;
-        color: #4CAF50;
-    }
-    .date {
-        color: #777;
-        width: 130px;
-    }
-</style>
-<table class="timeline-table">
-""", unsafe_allow_html=True)
-
-for item in timeline_data:
-    st.markdown(f"""
-    <tr>
-        <td class="date">{item["date"]}</td>
-        <td class="milestone">{item["milestone"]}</td>
-        <td>{item["description"]}</td>
-    </tr>
-    """, unsafe_allow_html=True)
-
-st.markdown("</table>", unsafe_allow_html=True)
-
 # User feedback section
 st.markdown("## Your feedback matters")
 st.write("Help us improve WasteWise by sharing your suggestions:")
