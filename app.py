@@ -67,6 +67,11 @@ def check_tensorflow_available():
         return True
     except ImportError:
         return False
+    
+MODEL_CLASS_NAMES = [
+    "Aluminium", "Cans", "Cardboard", "Foam packaging", "Glass", "Green waste",
+    "Hazardous", "Household", "Metal", "Oil", "Paper", "Plastic", "Textiles"
+]
 
 # defines a function to check if the text classification model is available and returns an error message if not
 @st.cache_resource
