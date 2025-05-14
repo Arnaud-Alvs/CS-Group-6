@@ -269,7 +269,7 @@ if st.session_state.identified_waste_type:
             "Plastic": { 
                 "bin": "Plastic recycling or general waste (check local rules)",
                 "tips": [ 
-                    "Rinse bottles and containers"
+                    "Rinse bottles and containers",
                     "Remove caps and labels if required",
                     "Check for recyclable plastic symbols",
                     "Do not mix with other materials"
