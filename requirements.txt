@@ -1,12 +1,29 @@
+# This file lists all the tools (Python libraries) that our project needs to work properly.
+# The programs are connected with the versions the user should use, here are the explanations about the versions
+  # The == means you are using a specific version of a package.
+  # The >= means you accept that version or newer.
+  # No version = install the latest available one.
+
+# Used to create the interactive web app (the app users see and interact with)
 streamlit==1.32.0
+# Helps organize and manage data in tables (rows/columns), like the CSV files
 pandas==2.2.0
+# Supports working with numbers, arrays, and calculations (often used with ML models)
 numpy==1.26.3
+# Handles image processing (e.g. loading and resizing user-uploaded images)
 pillow==10.2.0
+# Used to train and run the machine learning model for classifying waste by text
 scikit-learn==1.4.0
+# Lets the app send requests to external APIs (e.g. get location data)
 requests==2.31.0
+# Used to create interactive charts or graphs (useful for visual output)
 plotly==5.18.0
+# Allows loading private config (like API keys) from a hidden .env file
 python-dotenv==1.0.0
+# Helps with scientific and mathematical operations (used internally by other libraries)
 scipy>=1.7.0
+# Creates interactive maps to show collection points
 folium
-streamlit-folium
+streamlit-folium # Makes folium maps work smoothly inside the Streamlit app
+# Used for building and running image classification models (ML based on images)
 tensorflow>=2.15.0
