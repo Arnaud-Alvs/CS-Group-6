@@ -1,11 +1,19 @@
-import streamlit as st
-import os
-import sys
-import platform
+# This file is a diagnostic tool, it enables us to check if our system is ready to run artificial intelligence models using TensorFlow.
+# It also tests if a small model can be created, saved, loaded, and used to make a prediction.
+# We had to create this file because Arnaud Alves had some issues with the artificial intelligence model.
 
+# We import streamlit, the tool we use to build our webapp
+import streamlit as st
+
+# We import tools to get the current information about our system
+import os # lets us work with files and folders
+import sys # gives access to system-level details like Python version
+import platform # helps get operating system information
+
+# This sets the main title at the top of the web page
 st.title("TensorFlow Debug Info")
 
-# System info
+# Shows basic information about the computer running the app
 st.subheader("System Information")
 st.write(f"Python version: {sys.version}")
 st.write(f"Platform: {platform.platform()}")
