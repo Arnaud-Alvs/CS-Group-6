@@ -99,6 +99,7 @@ def download_model_from_reliable_source(model_path):
         # URL to your hosted model file
         model_url = "https://github.com/Arnaud-Alvs/CS-Group-6/releases/download/V-1.0.0/waste_image_classifier.h5"       
         
+        logger.info(f"Downloading model from {model_url}")
         response = requests.get(model_url, stream=True)
         if response.status_code != 200:
             logger.error(f"Failed to download model: HTTP {response.status_code}")
@@ -107,15 +108,38 @@ def download_model_from_reliable_source(model_path):
         total_size = int(response.headers.get('content-length', 0))
         logger.info(f"Starting download, expected size: {total_size} bytes")       
         
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        
+        # Write the content to file
+        with open(model_path, 'wb') as f:
+            downloaded_size = 0
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:  # filter out keep-alive new chunks
+                    f.write(chunk)
+                    downloaded_size += len(chunk)
+                    
+                    # Log progress every 10MB
+                    if downloaded_size % (10 * 1024 * 1024) == 0:
+                        progress = (downloaded_size / total_size) * 100 if total_size > 0 else 0
+                        logger.info(f"Downloaded {downloaded_size} bytes ({progress:.1f}%)")
+        
+        # Verify the download
         if os.path.exists(model_path) and os.path.getsize(model_path) > 1000000:
-            logger.info(f"Model downloaded successfully: {os.path.getsize(model_path)} bytes")
+            actual_size = os.path.getsize(model_path)
+            logger.info(f"Model downloaded successfully: {actual_size} bytes")
             return True
         else:
-            logger.error(f"Download failed or file too small: {os.path.getsize(model_path)} bytes")
+            actual_size = os.path.getsize(model_path) if os.path.exists(model_path) else 0
+            logger.error(f"Download failed or file too small: {actual_size} bytes")
+            if os.path.exists(model_path):
+                os.remove(model_path)  # Remove incomplete file
             return False
             
     except Exception as e:
         logger.error(f"Error downloading model: {str(e)}")
+        if os.path.exists(model_path):
+            os.remove(model_path)  # Remove incomplete file if it exists
         return False
 
 
@@ -129,26 +153,45 @@ def load_image_model():
             return None
             
         import tensorflow as tf
-        import os
         
-        # defines the path to the model
-        model_path = os.path.join(os.path.dirname(__file__), "waste_image_classifier.h5")
+        # Define the path to the model (in the current directory)
+        model_path = "waste_image_classifier.h5"
         
-        # downloads the model if it does not exist or is too small
+        # Download the model if it doesn't exist or is too small
         if not os.path.exists(model_path) or os.path.getsize(model_path) < 1000000:
+            logger.info(f"Model not found or too small at {model_path}, downloading...")
             success = download_model_from_reliable_source(model_path)
             if not success:
                 logger.error("Failed to download model")
                 return None
+        else:
+            logger.info(f"Model already exists at {model_path}")
         
-        # loads the model from the local path
+        # Load the model from the local path
         try:
             logger.info(f"Loading model from {model_path}")
             model = tf.keras.models.load_model(model_path, compile=False)
             logger.info("Model loaded successfully!")
+            
+            # Verify model structure
+            logger.info(f"Model input shape: {model.input_shape}")
+            logger.info(f"Model output shape: {model.output_shape}")
+            
             return model
         except Exception as e:
             logger.error(f"Error loading model: {str(e)}")
+            # If loading fails, try to delete and re-download
+            if os.path.exists(model_path):
+                logger.info("Removing corrupted model file and attempting re-download...")
+                os.remove(model_path)
+                success = download_model_from_reliable_source(model_path)
+                if success:
+                    try:
+                        model = tf.keras.models.load_model(model_path, compile=False)
+                        logger.info("Model loaded successfully after re-download!")
+                        return model
+                    except Exception as e2:
+                        logger.error(f"Error loading model after re-download: {str(e2)}")
             return None
             
     except Exception as e:
