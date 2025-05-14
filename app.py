@@ -208,9 +208,9 @@ def predict_from_text(description, model=None, vectorizer=None, encoder=None):
 # Enhanced predict_from_image function with fallback
 # Enhanced predict_from_image function without fallback
 def predict_from_image(img, model=None, class_names=None):
-    """Predict waste type from image"""
-    if model is None or class_names is None:
-        # If model is not available, return a generic message
+    """Predict waste type from image using the trained model"""
+    if model is None:
+        logger.warning("Image model not available")
         return "Unknown 🚫", 0.0
         
     try:
@@ -218,29 +218,33 @@ def predict_from_image(img, model=None, class_names=None):
         import tensorflow as tf
         from tensorflow.keras.preprocessing import image as keras_image
         
-        # Preprocess image
+        # Preprocess image exactly as during training
         img = img.resize((224, 224))
         img_array = keras_image.img_to_array(img)
         img_array = np.expand_dims(img_array, axis=0)
-        img_array = img_array / 255.0
+        img_array = img_array / 255.0  # Normalize pixel values
         
         # Make prediction
         predictions = model.predict(img_array)
         class_idx = np.argmax(predictions[0])
         confidence = float(np.max(predictions[0]))
         
-        # Get class name
-        if class_idx < len(class_names):
-            category = class_names[class_idx]
-            return category, confidence
+        # Use the MODEL_CLASS_NAMES that match the training
+        if class_idx < len(MODEL_CLASS_NAMES):
+            # Get the category from training names
+            category = MODEL_CLASS_NAMES[class_idx]
+            
+            # Convert to UI format with emoji using the existing function
+            ui_category = convert_to_ui_label(category)
+            
+            return ui_category, confidence
         else:
-            logger.error(f"Invalid class index: {class_idx}, max expected: {len(class_names)-1}")
+            logger.error(f"Invalid class index: {class_idx}, max expected: {len(MODEL_CLASS_NAMES)-1}")
             return "Unknown 🚫", 0.0
             
     except Exception as e:
         logger.error(f"Error in image prediction: {str(e)}")
         return "Unknown 🚫", 0.0
-
 # defines a function to convert the waste type selected in the UI to API format with the improved handling of emojis and exact matching 
 def convert_waste_type_to_api(ui_waste_type):
     """
@@ -349,11 +353,10 @@ def convert_to_ui_label(category):
         "Metal": "Metal 🪙",
         "Oil": "Oil 🛢",
         "Paper": "Paper 📄",
-        "Plastic": "Plastic",
+        "Plastic": "Plastic ♳",
         "Textiles": "Textiles 👕"
     }
     return mapping.get(category, category)
-
 
 
 # tries to imports mapping libaries and handle the errors if they are not available

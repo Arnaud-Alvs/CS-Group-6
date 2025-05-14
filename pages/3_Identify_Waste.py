@@ -133,10 +133,11 @@ with tab2:
             
             if st.button("Identify from Image", key="identify_image"):
                 with st.spinner("Analyzing your waste image..."):
+                    # Call predict_from_image without class_names parameter
+                    # The function will use MODEL_CLASS_NAMES internally
                     category, confidence = predict_from_image(
                         image, 
-                        model=image_model, 
-                        class_names=IMAGE_CLASS_NAMES
+                        model=image_model
                     )
                     if category:
                         st.session_state.identified_waste_type = category
