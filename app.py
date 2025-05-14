@@ -67,7 +67,7 @@ def check_tensorflow_available():
         return True
     except ImportError:
         return False
-    
+# Define a list of all possible waste type
 MODEL_CLASS_NAMES = [
     "Aluminium", "Cans", "Cardboard", "Foam packaging", "Glass", "Green waste",
     "Hazardous", "Household", "Metal", "Oil", "Paper", "Plastic", "Textiles"
@@ -231,8 +231,6 @@ def load_image_model():
     except Exception as e:
         logger.error(f"Unexpected error in load_image_model: {str(e)}")
         return None
-
-# Enhanced predict_from_text function with fallback
 # Enhanced predict_from_text function without fallback
 def predict_from_text(description, model=None, vectorizer=None, encoder=None):
     """Predict waste type from text"""
@@ -281,8 +279,7 @@ def predict_from_text(description, model=None, vectorizer=None, encoder=None):
         # If model is not available, return generic message
         logger.info("ML model not available for text prediction")
         return "Unknown 🚫", 0.0
-
-# Enhanced predict_from_image function with fallback
+    
 # Enhanced predict_from_image function without fallback
 def predict_from_image(img, model=None, class_names=None):
     """Predict waste type from image using the trained model"""
