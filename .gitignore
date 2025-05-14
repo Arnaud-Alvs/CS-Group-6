@@ -46,3 +46,5 @@ Thumbs.db
 
 # Those are the files with mistake reports, they helped us to adjust the bugs, it is not useful to share them.
 *.log
+
+# With support from Claude, who suggested to create this file in order to avoid overload for the programme and ensure optimal performance - Arnaud Alves.
