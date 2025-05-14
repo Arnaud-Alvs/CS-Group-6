@@ -1,21 +1,22 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-from PIL import Image
-import requests
-import json
-import pickle
-from datetime import datetime
-import os
-import sys
-import logging
+#imports the necessary libraries 
+import streamlit as st # to build the web app
+import pandas as pd # to handle data
+import numpy as np # for numerical operations
+from PIL import Image # for image processing
+import requests # to make API calls
+import json # to handle JSON data
+import pickle # to load ML models
+from datetime import datetime # to handle dates
+import os # to file system operations
+import sys # to handle system operations
+import logging # to use app wide logging
 
-# Configure error handling and logging
+# sets up the logging configuration
 logging.basicConfig(level=logging.INFO, 
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Import functions from location_api.py
+# imports helper functions for geolocations, waste disposal, APIs, and maps
 try:
     from location_api import (
         get_coordinates,
@@ -43,12 +44,12 @@ except Exception as e:
     logger.error(f"Unexpected error: {str(e)}")
     st.stop() # Stop execution on other import errors
 
-# Initialize session state if not already done
+# initializes variables in session state
 if 'waste_info_results' not in st.session_state:
     st.session_state.waste_info_results = None
     st.session_state.show_results = False
 
-# Function to check if ML models are available (moved to app.py to be accessible by all pages)
+# defines a function to check if the ML models exist locally 
 def check_ml_models_available():
     """Check if ML model files exist"""
     required_files = ['waste_classifier.pkl', 'waste_vectorizer.pkl', 'waste_encoder.pkl']
@@ -58,7 +59,7 @@ def check_ml_models_available():
             return False
     return True
 
-# Function to check if TensorFlow is available
+# defines a function to check if Tensorflow is available
 def check_tensorflow_available():
     """Check if TensorFlow is available"""
     try:
@@ -67,7 +68,7 @@ def check_tensorflow_available():
     except ImportError:
         return False
 
-        # Function to load the text model - fixed version
+# defines a function to check if the text classification model is available and returns an error message if not
 @st.cache_resource
 def load_text_model():
     """Load text classification model with proper error handling"""
@@ -86,7 +87,8 @@ def load_text_model():
     except Exception as e:
         logger.error(f"Error loading text model: {str(e)}")
         return None, None, None
-# Function to load the text model - fixed version
+    
+# defines a function to check if the model exists and is available and attempts to download it and returns an error message if not
 def download_model_from_reliable_source(model_path):
     """Download model from a reliable source"""
     try:
@@ -117,7 +119,7 @@ def download_model_from_reliable_source(model_path):
         return False
 
 
-# In app.py, modify your load_image_model function to integrate the new approach
+# defines a function to check if the image classification model is available and attempts to download it and returns an error message if not
 @st.cache_resource
 def load_image_model():
     """Load image classification model - focused on reliability"""
@@ -129,17 +131,17 @@ def load_image_model():
         import tensorflow as tf
         import os
         
-        # Define model path
+        # defines the path to the model
         model_path = os.path.join(os.path.dirname(__file__), "waste_image_classifier.h5")
         
-        # Download the model if needed
+        # downloads the model if it does not exist or is too small
         if not os.path.exists(model_path) or os.path.getsize(model_path) < 1000000:
             success = download_model_from_reliable_source(model_path)
             if not success:
                 logger.error("Failed to download model")
                 return None
         
-        # Load the model with error handling
+        # loads the model from the local path
         try:
             logger.info(f"Loading model from {model_path}")
             model = tf.keras.models.load_model(model_path, compile=False)
@@ -153,19 +155,100 @@ def load_image_model():
         logger.error(f"Unexpected error in load_image_model: {str(e)}")
         return None
 
+# Enhanced predict_from_text function with fallback
+def predict_from_text(description, model=None, vectorizer=None, encoder=None):
+    """Predict waste type from text with fallback to rule-based"""
+    if not description:
+        return None, 0.0
+    
+    # Use ML model if available
+    if model is not None and vectorizer is not None and encoder is not None:
+        try:
+            description = description.lower()
+            X_new = vectorizer.transform([description])
+            prediction = model.predict(X_new)[0]
+            probabilities = model.predict_proba(X_new)[0]
+            confidence = probabilities[prediction]
+            
+            # Get category from encoder and ensure it's in the right format
+            category = encoder.inverse_transform([prediction])[0]
 
+        # Map category to UI format with emojis if needed
+            category_mapping = {
+                "Household": "Household waste 🗑",
+                "Paper": "Paper 📄",
+                "Cardboard": "Cardboard 📦",
+                "Glass": "Glass 🍾",
+                 "Green": "Green waste 🌿",
+                "Cans": "Cans 🥫",
+                "Aluminium": "Aluminium 🧴",
+                "Metal": "Metal 🪙",
+                "Textiles": "Textiles 👕",
+                "Oil": "Oil 🛢",
+                "Hazardous": "Hazardous waste ⚠",
+                "Foam packaging": "Foam packaging ☁"
+            }
 
-# Function to convert waste type selected in UI to API format
-# Add this improved convert_waste_type_to_api function to app.py
-# Replace the existing function with this one
+            ui_category = category_mapping.get(category, category)
 
+            if confidence < 0.3:
+                return "Unknown 🚫", float(confidence)
+
+            return ui_category, float(confidence)
+
+        except Exception as e:
+            logger.error(f"Error in ML text prediction: {str(e)}")
+            # Fall back to rule-based
+            return rule_based_prediction(description)
+    else:
+        # Fall back to rule-based prediction
+        logger.info("ML model not available, using rule-based prediction")
+        return rule_based_prediction(description)
+
+# Enhanced predict_from_image function with fallback
+def predict_from_image(img, model=None, class_names=None):
+    """Predict waste type from image with fallback to color-based"""
+    if model is None or class_names is None:
+        # Fallback to color-based prediction
+        logger.info("Image model not available, using color-based prediction")
+        return simple_image_prediction(img)
+        
+    try:
+        # Ensure TensorFlow is imported
+        import tensorflow as tf
+        from tensorflow.keras.preprocessing import image as keras_image
+        
+        # Preprocess image
+        img = img.resize((224, 224))
+        img_array = keras_image.img_to_array(img)
+        img_array = np.expand_dims(img_array, axis=0)
+        img_array = img_array / 255.0
+        
+        # Make prediction
+        predictions = model.predict(img_array)
+        class_idx = np.argmax(predictions[0])
+        confidence = float(np.max(predictions[0]))
+        
+        # Get class name
+        if class_idx < len(class_names):
+            category = class_names[class_idx]
+            return category, confidence
+        else:
+            logger.error(f"Invalid class index: {class_idx}, max expected: {len(class_names)-1}")
+            return simple_image_prediction(img)
+            
+    except Exception as e:
+        logger.error(f"Error in image prediction: {str(e)}")
+        return simple_image_prediction(img)
+
+# defines a function to convert the waste type selected in the UI to API format with the improved handling of emojis and exact matching 
 def convert_waste_type_to_api(ui_waste_type):
     """
     Convert waste type selected in UI to API format with improved handling of emoji and exact matching.
     """
-    # First strip any emoji from the waste type if present
+    # begins with a clean versions of the waste type
     clean_waste_type = ui_waste_type
-    # Remove emoji and additional text if present
+    # removes any emojis from the waste type 
     if " " in clean_waste_type:
         clean_waste_type = clean_waste_type.split(" ")[0]
     
@@ -184,7 +267,7 @@ def convert_waste_type_to_api(ui_waste_type):
         "Foam": "Styropor"
     }
     
-    # Also support full names with emoji
+    # also includes a full mapping with emojis for better matching
     full_mapping = {
         "Household waste 🗑": "Kehricht",
         "Paper 📄": "Papier",
@@ -200,25 +283,24 @@ def convert_waste_type_to_api(ui_waste_type):
         "Foam packaging ☁": "Styropor"
     }
     
-    # Try full match first
+    # tries the full mapping first for exact matches
     if ui_waste_type in full_mapping:
         return full_mapping[ui_waste_type]
     
-    # Then try clean waste type
+    # then tries the clean mapping for exact matches 
     if clean_waste_type in mapping:
         return mapping[clean_waste_type]
     
-    # If still not found, try case-insensitive partial matching
+    # if the wast type is still not found, tries a case-sensitive match 
     ui_waste_lower = ui_waste_type.lower()
     for key, value in full_mapping.items():
         if key.lower() in ui_waste_lower or ui_waste_lower in key.lower():
             return value
     
-    # If we get here, return the original input as fallback
-    # This might happen if the waste type was already in API format
+    # if the waste type is still not found, returns the original waste type
     return ui_waste_type
 
-# Convert API waste type to UI format (with emojis)
+# converts the API term to a friendly UI format with emojis
 def convert_api_to_ui_waste_type(api_waste_type):
     mapping = {
         "Kehricht": "Household waste 🗑",
@@ -236,7 +318,7 @@ def convert_api_to_ui_waste_type(api_waste_type):
     }
     return mapping.get(api_waste_type, api_waste_type)
 
-# Define image class names (needed across pages)
+# defines the image classes that are needed accross all pages for the image recognition 
 IMAGE_CLASS_NAMES = [
     "Aluminium 🧴",
     "Cans 🥫",
@@ -253,7 +335,7 @@ IMAGE_CLASS_NAMES = [
     "Textiles 👕"
 ]
 
-
+# defines a function to format the waste type into a friendly UI label with emojis
 def convert_to_ui_label(category):
     mapping = {
         "Aluminium": "Aluminium 🧴",
@@ -274,7 +356,7 @@ def convert_to_ui_label(category):
 
 
 
-# Try importing folium and streamlit_folium upfront
+# tries to imports mapping libaries and handle the errors if they are not available
 try:
     import folium
     from streamlit_folium import st_folium
@@ -283,13 +365,14 @@ except ImportError as e:
     logger.warning(f"Failed to import map libraries: {str(e)}")
     logger.warning("Maps functionality might be limited")
 
-# Redirect to the Home page
+# imports the stramlit web server and bootstrap modules 
 import streamlit.web.bootstrap
 from streamlit.web.server.server import Server
 import os
 
+# imports the app start page and navigation module 
 if __name__ == "__main__":
-    # Set page config for the main app (needed even though we redirect)
+    # sets the page configuration for the main app
     st.set_page_config(
         page_title="WasteWise - Your smart recycling assistant",
         page_icon="♻️",
@@ -297,7 +380,7 @@ if __name__ == "__main__":
         initial_sidebar_state="expanded"
     )
 
-    # Hide ALL built-in Streamlit navigation elements - PUT THE CSS HERE
+    # hides the default sidebar navigation and the expand collapse arrow using CSS 
     hide_streamlit_style = """
     <style>
     /* Hide the default sidebar navigation */
@@ -323,9 +406,9 @@ if __name__ == "__main__":
     """
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
     
-    # Create a simple loading page
+    # creates a loading spinner to show during the loading of the app
     st.write("# Loading WasteWise...")
     st.write("Please wait while we load the application...")
 
-# Then try the switch
+# tries to switch to main page of the app
     st.switch_page("pages/1_Home.py")
