@@ -92,6 +92,14 @@ def load_text_model():
 def download_model_from_reliable_source(model_path):
     """Download model from a reliable source"""
     try:
+        # Validate the model_path
+        if not model_path or model_path == '':
+            logger.error("Invalid model path: path is empty")
+            return False
+            
+        logger.info(f"Attempting to download to: {model_path}")
+        
+        # Check if file already exists and is valid
         if os.path.exists(model_path) and os.path.getsize(model_path) > 1000000:
             logger.info(f"Model file already exists at {model_path}")
             return True
@@ -100,6 +108,14 @@ def download_model_from_reliable_source(model_path):
         model_url = "https://github.com/Arnaud-Alvs/CS-Group-6/releases/download/V-1.0.0/waste_image_classifier.h5"       
         
         logger.info(f"Downloading model from {model_url}")
+        
+        # Create directory if it doesn't exist
+        model_dir = os.path.dirname(model_path)
+        if model_dir and not os.path.exists(model_dir):
+            logger.info(f"Creating directory: {model_dir}")
+            os.makedirs(model_dir, exist_ok=True)
+        
+        # Download with requests
         response = requests.get(model_url, stream=True)
         if response.status_code != 200:
             logger.error(f"Failed to download model: HTTP {response.status_code}")
@@ -107,9 +123,6 @@ def download_model_from_reliable_source(model_path):
             
         total_size = int(response.headers.get('content-length', 0))
         logger.info(f"Starting download, expected size: {total_size} bytes")       
-        
-        # Create directory if it doesn't exist
-        os.makedirs(os.path.dirname(model_path), exist_ok=True)
         
         # Write the content to file
         with open(model_path, 'wb') as f:
@@ -119,30 +132,42 @@ def download_model_from_reliable_source(model_path):
                     f.write(chunk)
                     downloaded_size += len(chunk)
                     
-                    # Log progress every 10MB
-                    if downloaded_size % (10 * 1024 * 1024) == 0:
+                    # Log progress every 50MB
+                    if downloaded_size % (50 * 1024 * 1024) == 0:
                         progress = (downloaded_size / total_size) * 100 if total_size > 0 else 0
                         logger.info(f"Downloaded {downloaded_size} bytes ({progress:.1f}%)")
         
         # Verify the download
-        if os.path.exists(model_path) and os.path.getsize(model_path) > 1000000:
+        if os.path.exists(model_path):
             actual_size = os.path.getsize(model_path)
-            logger.info(f"Model downloaded successfully: {actual_size} bytes")
-            return True
-        else:
-            actual_size = os.path.getsize(model_path) if os.path.exists(model_path) else 0
-            logger.error(f"Download failed or file too small: {actual_size} bytes")
-            if os.path.exists(model_path):
+            logger.info(f"Download completed. File size: {actual_size} bytes")
+            
+            if actual_size > 1000000:  # At least 1MB
+                logger.info("Model downloaded successfully!")
+                return True
+            else:
+                logger.error(f"Downloaded file is too small: {actual_size} bytes")
                 os.remove(model_path)  # Remove incomplete file
+                return False
+        else:
+            logger.error("Downloaded file not found after completion")
             return False
             
-    except Exception as e:
-        logger.error(f"Error downloading model: {str(e)}")
-        if os.path.exists(model_path):
-            os.remove(model_path)  # Remove incomplete file if it exists
+    except PermissionError as e:
+        logger.error(f"Permission error downloading model: {str(e)}")
         return False
-
-
+    except OSError as e:
+        logger.error(f"OS error downloading model: {str(e)}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error downloading model: {str(e)}")
+        # Clean up any partial download
+        try:
+            if model_path and os.path.exists(model_path):
+                os.remove(model_path)
+        except:
+            pass
+        return False
 # defines a function to check if the image classification model is available and attempts to download it and returns an error message if not
 @st.cache_resource
 def load_image_model():
@@ -154,8 +179,12 @@ def load_image_model():
             
         import tensorflow as tf
         
-        # Define the path to the model (in the current directory)
-        model_path = "waste_image_classifier.h5"
+        # Get the current working directory and create model path
+        current_dir = os.getcwd()
+        model_path = os.path.join(current_dir, "waste_image_classifier.h5")
+        
+        logger.info(f"Current working directory: {current_dir}")
+        logger.info(f"Model path: {model_path}")
         
         # Download the model if it doesn't exist or is too small
         if not os.path.exists(model_path) or os.path.getsize(model_path) < 1000000:
