@@ -1,8 +1,3 @@
-# This API module connects our application to the St. Gallen city open data services
-# We use it to obtain information about waste collection points and pickup schedules
-# The API requires making HTTP requests to retrieve data from the city's endpoints
-# We import various libraries to handle data processing, calculations, and visualization
-
 # We import the necessary libraries 
 import streamlit as st # to build the web app
 import pandas as pd # to handle data
