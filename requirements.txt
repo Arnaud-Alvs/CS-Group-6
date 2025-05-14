@@ -1,7 +1,7 @@
 # This file lists all the tools (Python libraries) that our project needs to work properly.
 # The programs are connected with the versions the user should use, here are the explanations about the versions
   # The == means you are using a specific version of a package.
-  # The >= means you accept that version or newer.
+  # The >= means you accept that version or newer
   # No version = install the latest available one.
 
 # Used to create the interactive web app (the app users see and interact with)
