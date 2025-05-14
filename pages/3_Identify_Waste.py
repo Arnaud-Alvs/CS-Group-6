@@ -371,4 +371,4 @@ with st.sidebar:
 
 # Footer
 st.markdown("---")
-st.markdown("© 2025 WasteWise - University Project 
+st.markdown("© 2025 WasteWise - University Project")
