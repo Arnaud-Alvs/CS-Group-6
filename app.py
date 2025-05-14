@@ -156,10 +156,11 @@ def load_image_model():
         return None
 
 # Enhanced predict_from_text function with fallback
+# Enhanced predict_from_text function without fallback
 def predict_from_text(description, model=None, vectorizer=None, encoder=None):
-    """Predict waste type from text with fallback to rule-based"""
+    """Predict waste type from text"""
     if not description:
-        return None, 0.0
+        return "Unknown 🚫", 0.0
     
     # Use ML model if available
     if model is not None and vectorizer is not None and encoder is not None:
@@ -173,13 +174,13 @@ def predict_from_text(description, model=None, vectorizer=None, encoder=None):
             # Get category from encoder and ensure it's in the right format
             category = encoder.inverse_transform([prediction])[0]
 
-        # Map category to UI format with emojis if needed
+            # Map category to UI format with emojis if needed
             category_mapping = {
                 "Household": "Household waste 🗑",
                 "Paper": "Paper 📄",
                 "Cardboard": "Cardboard 📦",
                 "Glass": "Glass 🍾",
-                 "Green": "Green waste 🌿",
+                "Green": "Green waste 🌿",
                 "Cans": "Cans 🥫",
                 "Aluminium": "Aluminium 🧴",
                 "Metal": "Metal 🪙",
@@ -198,20 +199,19 @@ def predict_from_text(description, model=None, vectorizer=None, encoder=None):
 
         except Exception as e:
             logger.error(f"Error in ML text prediction: {str(e)}")
-            # Fall back to rule-based
-            return rule_based_prediction(description)
+            return "Unknown 🚫", 0.0
     else:
-        # Fall back to rule-based prediction
-        logger.info("ML model not available, using rule-based prediction")
-        return rule_based_prediction(description)
+        # If model is not available, return generic message
+        logger.info("ML model not available for text prediction")
+        return "Unknown 🚫", 0.0
 
 # Enhanced predict_from_image function with fallback
+# Enhanced predict_from_image function without fallback
 def predict_from_image(img, model=None, class_names=None):
-    """Predict waste type from image with fallback to color-based"""
+    """Predict waste type from image"""
     if model is None or class_names is None:
-        # Fallback to color-based prediction
-        logger.info("Image model not available, using color-based prediction")
-        return simple_image_prediction(img)
+        # If model is not available, return a generic message
+        return "Unknown 🚫", 0.0
         
     try:
         # Ensure TensorFlow is imported
@@ -235,11 +235,11 @@ def predict_from_image(img, model=None, class_names=None):
             return category, confidence
         else:
             logger.error(f"Invalid class index: {class_idx}, max expected: {len(class_names)-1}")
-            return simple_image_prediction(img)
+            return "Unknown 🚫", 0.0
             
     except Exception as e:
         logger.error(f"Error in image prediction: {str(e)}")
-        return simple_image_prediction(img)
+        return "Unknown 🚫", 0.0
 
 # defines a function to convert the waste type selected in the UI to API format with the improved handling of emojis and exact matching 
 def convert_waste_type_to_api(ui_waste_type):
