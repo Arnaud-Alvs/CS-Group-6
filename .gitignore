@@ -1,4 +1,10 @@
-# Python bytecode
+# This file serves to tell Github which files it shall not take into account.
+# We used it for two main reasons :
+# Reason 1 : When we work on a project, there are some files that are automatically created by the computer or some softwares, some of them are not useful or big. Hence, we don't want to take them into account.
+# Reason 2 : When we had some stuggles with some parts of the code, we used it to isolate the probelm and enable the team to continue working
+ 
+
+# Files that are automatically created by python are not useful for the shared projects, hence we tell github to ignore them
 __pycache__/
 *.py[cod]
 *$py.class
