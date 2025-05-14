@@ -9,7 +9,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Those files are created only when we are transforming code into app, they are temporary.
+# Those files are created only when we are transforming code into app, they are temporary. 
 dist/
 build/
 *.egg-info/
