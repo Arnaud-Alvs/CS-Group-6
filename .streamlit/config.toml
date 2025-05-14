@@ -1,9 +1,23 @@
+# This file customizes the appearance and behavior of the Streamlit app.
+# It defines the color theme and adjusts server settings to make development easier.
+
+# Pt 1 : Theme configuration
+# Start of the visual style section
 [theme]
+# Main color used for buttons, sliders, etc.
 primaryColor="#F63366"
+# Main background color of the app
 backgroundColor="#FFFFFF"
+# Secondary background color (used for cards, sidebars, etc.)
 secondaryBackgroundColor="#F0F2F6"
+# Text color used across the app
 textColor="#262730"
+# Font style used throughout the interface
 font="sans serif"
+
+# Pt 2 : Server configuration
 [server]
+# Disables CORS protection (helps when app is accessed from a different web domain)
 enableCORS = false
+# Disables XSRF protection (used during form submissions; disabling it can help during local testing)
 enableXsrfProtection = false
