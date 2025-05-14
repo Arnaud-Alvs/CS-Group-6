@@ -9,26 +9,26 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Ignore the files that are created when we create a new software, those files are created when we turn code into app.
+# We tell Github to ignore the files that are created when we turned our code into app.
 dist/
 build/
 *.egg-info/
 
-# Virtual environments
+# We tell Github to ignore the copy that python creates automatically for each team member on their computers. Those files are heavy and not useful for the running of the code.
 venv/
 env/
 ENV/
 
-# Environment variables
+# This file can contain some important and confidential informations such as passwords, we hence ask Github to not publish it online
 .env
 
-# Trained models and data
+# Those are the files containing AI models or other databases, they are heavy and we hence don't want to publish them.
 *.pkl
 *.csv
 *.json
 *.h5
 
-# Jupyter Notebook
+# Those are some drafts that are useless to be shared.
 .ipynb_checkpoints
 
 # IDE specific files
