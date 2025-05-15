@@ -410,4 +410,5 @@ with st.sidebar:
 st.markdown("---")
 st.markdown("© 2025 WasteWise - University Project")
 
-# Th
+# This file was created with the help of ChatGPT (OpenAI) to help with correcting mistakes - Andreas Lucchini
+# The documentation (comments) were done with the help of ChatGPT - Noah Pittet
