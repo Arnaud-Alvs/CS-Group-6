@@ -21,3 +21,5 @@ font="sans serif"
 enableCORS = false
 # Disables XSRF protection (used during form submissions; disabling it can help during local testing)
 enableXsrfProtection = false
+
+# With support from ChatGPT (OpenAI), consulted for debugging and resolving initial implementation errors
