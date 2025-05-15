@@ -1,3 +1,5 @@
+# This is the principal page of WasteWise an Waste sorter helping app that allows the user to find the nearest collection points.
+# The app using a text based recognition ML model and an image based recognition ML model helps the user identify waste types. 
 # We import the necessary libraries
 import streamlit as st # to build the web app
 import pandas as pd # to handle data
