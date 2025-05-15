@@ -13,3 +13,5 @@ try:
     # If something goes wrong (for example: the file doesn’t exist or is corrupted), this line catches the error and prints a message showing what went wrong.
 except Exception as e:
     print(f"❌ Failed to load model: {e}")
+
+# With support from ChatGPT (OpenAI), consulted for debugging, comments and resolving initial implementation errors - Arnaud Butty
