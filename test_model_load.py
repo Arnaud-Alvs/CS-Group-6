@@ -1,4 +1,4 @@
-# This file acts like a quick health check to make sure your saved AI model for image classification is ready to be used in the main app.
+# This file acts like a quick health check to make sure our saved AI model for image classification is ready to be used in the main app.
 # It helps to verify that the saved model file is still valid (the .pkl files)
 
 # This function loads our previously saved AI model classifiying waste based on images.
