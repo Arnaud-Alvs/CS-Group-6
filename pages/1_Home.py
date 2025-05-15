@@ -1,9 +1,10 @@
+# Import necessary libraries
 import streamlit as st
 import random
 from PIL import Image
 import os
 
-# Page configuration must be the FIRST Streamlit command
+# Set up page-wide configuration (must be done first before anything else appears)
 st.set_page_config(
     page_title="WasteWise - Home",
     page_icon="♻️",
@@ -11,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Hide ALL built-in Streamlit navigation elements
+# Hide default Streamlit elements that we don’t want (like built-in navigation)
 hide_streamlit_style = """
 <style>
 /* Hide the default sidebar navigation */
@@ -35,17 +36,22 @@ section[data-testid="stSidebar"] > div {
 }
 </style>
 """
+# Apply the custom style
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Main content
+
+# Display the title at the top of the homepage
 st.title("♻️ WasteWise - Your smart recycling assistant")
 
 
-# Feature showcases with icons and descriptions
+# Describe the main features with headings and buttons
 st.markdown("## What can WasteWise do for you?")
 
+# Divide the space into two columns
 col1, col2 = st.columns(2)
 
+# Left column — Finding collection points
 with col1:
     st.markdown("### 🚮 Find Collection Points")
     st.markdown("""
@@ -53,7 +59,8 @@ with col1:
     We'll find the nearest collection points and upcoming collection dates for you.
     """)
     st.page_link("pages/2_Find_Collection_Points.py", label="Find Disposal Options", icon="🔍")
-    
+
+# Right column — Identifying waste
 with col2:
     st.markdown("### 🔍 Identify Your Waste")
     st.markdown("""
@@ -62,9 +69,10 @@ with col2:
     """)
     st.page_link("pages/3_Identify_Waste.py", label="Identify Your Waste", icon="📸")
 
-# Tips of the day
+# Tips of the day section
 st.markdown("---")
 st.subheader("💡 Tip of the Day")
+# List of random environmental tips
 tips_of_the_day = [
     "Recycling one aluminum can saves enough energy to run a TV for three hours.",
     "Paper can be recycled up to 7 times before the fibers become too short.",
@@ -76,11 +84,13 @@ tips_of_the_day = [
     "Remember to break down cardboard packaging before disposing of it to save space.",
     "LED bulbs are less harmful to the environment and last longer."
 ]
+# Randomly show one tip each time the page is refreshed
 st.info(random.choice(tips_of_the_day))
 
-# Environmental impact statistics
+# Environmental impact section
 st.markdown("## Environmental Impact")
 
+# Split the screen into 3 columns to show key impact metrics
 impact_col1, impact_col2, impact_col3 = st.columns(3)
 
 with impact_col1:
@@ -93,12 +103,12 @@ with impact_col3:
     st.metric(label="Active Users", value="853", delta="57 new")
 
 
-# Set up sidebar
+# SIDEBAR SETUP
 with st.sidebar:
     st.title("WasteWise")
     st.markdown("Your smart recycling assistant")
     
-    # Navigation
+    # Main navigation links
     st.markdown("## Navigation")
     st.page_link("pages/1_Home.py", label="Home", icon="🏠")
     st.page_link("pages/2_Find_Collection_Points.py", label="Find Collection Points", icon="🚮")
