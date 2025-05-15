@@ -729,3 +729,5 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
     # We return the final result, which includes the message, coordinates, date, etc.
     return results
 
+# With support from Claude AI, consulted for debugging and resolving initial implementation errors - Arnaud Alves.
+# With support from Claude AI and ChatGPT for the documentation of this file (comments)
