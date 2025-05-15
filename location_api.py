@@ -128,6 +128,7 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
                 continue
                 
         # If we got here, we didn't find a suitable location in St. Gallen
+        # Provide a clear message to the user about the limitation of our service
         st.warning("The address was found, but appears to be outside St. Gallen city. This app is for St. Gallen addresses only.")
         logger.warning(f"No results within St. Gallen boundaries for: {search_address}")
         return None
@@ -142,52 +143,60 @@ def get_coordinates(address: str, api_key: Optional[str] = None) -> Optional[Dic
         return None
 
 # Function to calculate the distance between two points using the Haversine formula
+# This mathematical formula accounts for Earth's curvature when calculating distances
+# We use it to determine how far collection points are from the user's location
+
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
     Calculate the great-circle distance between two points on the Earth
     (specified in decimal degrees) using the Haversine formula.
     Returns distance in kilometers.
     """
-    # Radius of the Earth in kilometers
+    # Radius of the Earth in kilometers, a standard constant for these calculations
     R = 6371.0
 
-    # Convert degrees to radians
+    # Convert degrees to radians - mathematical operations require radian angles
     lat1_rad = radians(lat1)
     lon1_rad = radians(lon1)
     lat2_rad = radians(lat2)
     lon2_rad = radians(lon2)
 
-    # Difference in coordinates
+    # Difference in coordinates - the core of the Haversine calculation
     dlon = lon2_rad - lon1_rad
     dlat = lat2_rad - lat1_rad
 
-    # Haversine formula
+    # Haversine formula implementation
+    # This accounts for the Earth's spherical shape when calculating distance
     a = sin(dlat / 2)**2 + cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2)**2
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
 
     distance = R * c
     
-    # For debugging the distance issue
+    # For debugging the distance issue - helps track calculations in the logs
     logger.info(f"Calculated distance: {distance} km between ({lat1}, {lon1}) and ({lat2}, {lon2})")
     
     return distance
 
 # Add a new function to create an interactive map
+# This function visualizes the user's location and nearby collection points
+# We use the folium library which creates interactive maps based on Leaflet.js
 def create_interactive_map(user_coords: Dict[str, float], collection_points: List[Dict[str, Any]]) -> folium.Map:
     """
     Creates an interactive Folium map with the user's location and nearby collection points.
     Each point shows information on hover.
     """
     # Create a map centered on the user's location
+    # If no user location is provided, we default to St. Gallen city center
     st_gallen_center = [47.4245, 9.3767]  # Center of St. Gallen
     
-    # If we have user coordinates, center on them, otherwise use St. Gallen center
+    # If we have user coordinates, center on the user's location, otherwise use St. Gallen center
     if user_coords:
         center = [user_coords["lat"], user_coords["lon"]]
     else:
         center = st_gallen_center
     
     # Create the base map with a cleaner style
+    # CartoDB positron gives a clean, light background that makes markers stand out
     m = folium.Map(
         location=center,
         zoom_start=14,
@@ -196,8 +205,11 @@ def create_interactive_map(user_coords: Dict[str, float], collection_points: Lis
     )
   
     # Add a tighter max bounds to prevent users from panning too far
+    # This keeps the focus on the St. Gallen area where our data is relevant
     m.options['maxBounds'] = [[47.3600, 9.3000], [47.4800, 9.4500]]
 
+    # Add a watermark/attribution to the map for branding
+    # This appears as a small overlay at the bottom left of the map
     m.get_root().html.add_child(folium.Element(
         """
         <div style="position: fixed; bottom: 10px; left: 10px; z-index: 1000; 
@@ -208,6 +220,7 @@ def create_interactive_map(user_coords: Dict[str, float], collection_points: Lis
     ))
 
     # Add user marker with a nicer icon
+    # This shows the user where their entered address is located on the map
     if user_coords:
         folium.Marker(
             location=[user_coords["lat"], user_coords["lon"]],
@@ -217,12 +230,15 @@ def create_interactive_map(user_coords: Dict[str, float], collection_points: Lis
         ).add_to(m)
     
     # Add collection points markers with improved styling
+    # Each waste collection point gets its own marker with detailed information
     for point in collection_points:
         # Create a nice tooltip with waste types
+        # This shows basic info when hovering over a point
         waste_types_str = ", ".join([translate_waste_type(wt) for wt in point["waste_types"]])
         tooltip = f"{point['name']}<br>Accepts: {waste_types_str}"
         
         # Create a popup with more detailed information and better styling
+        # This appears when clicking on a marker and contains comprehensive information
         popup_html = f"""
         <div style="width: 250px; padding: 10px;">
             <h4 style="color: #2c7fb8; margin-top: 0;">{point['name']}</h4>
@@ -233,6 +249,7 @@ def create_interactive_map(user_coords: Dict[str, float], collection_points: Lis
         """
         
         # Create the marker with custom icon and add to map
+        # The recycle icon visually indicates the purpose of these locations
         folium.Marker(
             location=[point["lat"], point["lon"]],
             popup=folium.Popup(popup_html, max_width=300),
@@ -241,13 +258,17 @@ def create_interactive_map(user_coords: Dict[str, float], collection_points: Lis
         ).add_to(m)
     
     return m
+    
 # Function to fetch collection points data from the API
+# This retrieves all waste disposal locations from the city's database
+# We use the requests library to make HTTP calls to the city's API
 def fetch_collection_points() -> List[Dict[str, Any]]:
     """
     Fetches waste collection points data from the St. Gallen Open Data API.
     """
     try:
         # Set a higher limit to get more results, or remove it to use default
+        # The API has pagination, so we request a larger number of results
         params = {"limit": 100} # Increased limit for potentially more points
         logger.info(f"Fetching collection points from: {COLLECTION_POINTS_ENDPOINT} with params: {params}")
         response = requests.get(COLLECTION_POINTS_ENDPOINT, params=params, timeout=30)
@@ -267,6 +288,9 @@ def fetch_collection_points() -> List[Dict[str, Any]]:
 
 
 # Function to fetch collection dates data from the API
+# This retrieves scheduled waste pickup dates from the city's database
+# We use pagination to handle potentially large datasets efficiently
+
 def fetch_collection_dates() -> List[Dict[str, Any]]:
     """
     Fetches waste collection dates data from the St. Gallen Open Data API.
@@ -281,9 +305,13 @@ def fetch_collection_dates() -> List[Dict[str, Any]]:
         limit = 100  # Number of records per page
         
         logger.info(f"Starting to fetch collection dates from {base_url}")
-        
+
+        # Use a while loop to fetch all pages of data
+        # This handles pagination by requesting data in chunks until we have everything
         while True:
+            
             # Configure parameters for this page, including the 2025 filter
+            # We filter by year to reduce data volume and improve performance
             params = {
                 "limit": limit,
                 "offset": offset,
@@ -292,14 +320,15 @@ def fetch_collection_dates() -> List[Dict[str, Any]]:
             
             logger.info(f"Fetching page with offset {offset}, limit {limit}, filtered to 2025")
             
-            # Make the request
+            # Make the request to the API endpoint
             response = requests.get(base_url, params=params, timeout=30)
             response.raise_for_status()
             
             data = response.json()
             page_results = data.get('results', [])
             total_count = data.get('total_count', 0)
-            
+
+            # If no results on this page, we've reached the end
             if not page_results:
                 logger.info(f"No more results at offset {offset}")
                 break
@@ -309,6 +338,7 @@ def fetch_collection_dates() -> List[Dict[str, Any]]:
             logger.info(f"Retrieved {len(page_results)} records, total so far: {len(all_results)}")
             
             # If we've got all the results, or if there are no more results, stop
+            # This avoids unnecessary API calls once we have all the data
             if len(all_results) >= total_count or len(page_results) < limit:
                 logger.info(f"Finished fetching data, got {len(all_results)} of {total_count} total records")
                 break
@@ -327,7 +357,10 @@ def fetch_collection_dates() -> List[Dict[str, Any]]:
         logger.error(f"Error fetching collection dates: {str(e)}")
         st.error(f"Unable to retrieve collection dates from the API: {str(e)}")
         return []
+        
 # Function to find nearest collection points for a given waste type and user location
+# This filters collection points to only those accepting the specified waste type
+# We calculate distances to sort by proximity to the user's location
 def find_collection_points(user_lat: float, user_lon: float, waste_type: str, all_points: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Finds collection points that accept the specified waste type and calculates
@@ -336,6 +369,7 @@ def find_collection_points(user_lat: float, user_lon: float, waste_type: str, al
     suitable_points = []
     
     # Iterate through all fetched collection points
+    # We need to check each one for relevance to the user's query
     for point in all_points:
         # Check if the point has location data and accepts the waste type
         if "geo_point_2d" in point and point["geo_point_2d"] and "abfallarten" in point:
@@ -347,10 +381,11 @@ def find_collection_points(user_lat: float, user_lon: float, waste_type: str, al
                     point_lat = float(point["geo_point_2d"]["lat"])
                     point_lon = float(point["geo_point_2d"]["lon"])
                     
-                    # Calculate distance
+                    # Calculate distance from user to this collection point
+                    # This lets us sort results by proximity
                     distance = haversine_distance(user_lat, user_lon, point_lat, point_lon)
                     
-                    # Add distance and formatted address to the point data
+                    # We compile a clean, consistent data structure for display
                     point_data = {
                         "name": point.get("standort", "Unknown Location"),
                         "lat": point_lat,
@@ -370,12 +405,14 @@ def find_collection_points(user_lat: float, user_lon: float, waste_type: str, al
     return suitable_points
 
 # Function to get the next collection date for a given waste type and street
+# This helps users know when their waste will be collected from their location
 def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """
     Finds the next collection date for a specific waste type and street.
     Skips collections that are earlier on the same day.
     """
     # Get current date and time for same-day checks
+    # This ensures we don't show collections that have already passed today
     now = datetime.now()
     today = now.date()
     current_hour = now.hour
@@ -394,7 +431,7 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
         # Get the streets list
         streets = item.get('strasse', [])
         
-        # Ensure streets is a list
+        # Ensure streets is formatted as a list for consistent processing
         if not isinstance(streets, list):
             streets = [streets]
         
@@ -423,7 +460,7 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
                                 'area': item.get('gebietsbezeichnung', 'N/A')
                             })
                         elif date_obj == today:
-                            # It's today - check the time
+                            # It's today, check the time to see if it's already passed
                             time_str = item.get('zeit', '')
                             
                             # Try to extract the hour from time string like "ab 7.00 Uhr"
@@ -434,7 +471,10 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
                                     collection_hour = int(time_match.group(1))
                                     
                                     # If collection time is in the future today, include it
+                                    # Skip collections that have already happened today
                                     if collection_hour > current_hour:
+                                        # If we can't parse the hour, include it to be safe
+                                        # Better to show potentially passed collections than miss future ones
                                         relevant_dates.append({
                                             'date': date_obj,
                                             'time': time_str,
@@ -474,7 +514,10 @@ def get_next_collection_date(street_name: str, waste_type: str, all_dates: List[
     else:
         logger.warning(f"No future collection dates found for waste type '{waste_type}' on street '{street_name}'")
         return None
+        
 # Function to format results for display in Streamlit
+# This prepares data structures that work well with Streamlit's display components
+# We create both map data and detailed information for the UI
 def format_collection_points(collection_points: List[Dict[str, Any]]) -> Tuple[pd.DataFrame, List[Dict[str, Any]]]:
     """
     Formats the list of collection points into a pandas DataFrame for map display
@@ -490,10 +533,9 @@ def format_collection_points(collection_points: List[Dict[str, Any]]) -> Tuple[p
     # Return the map data and the original list of points (which now includes distance, etc.)
     return map_data, collection_points
 
-# ----------------------------------------
-# TRANSLATION (Keep existing translation functions)
-# ----------------------------------------
-
+# This function translates waste type names from German to English
+# Our API returns data in German, but we want to display information in English
+# A simple dictionary lookup handles the common waste type translations
 def translate_waste_type(waste_type: str) -> str:
     """
     Translates waste type names from German (from API) to English.
@@ -514,6 +556,9 @@ def translate_waste_type(waste_type: str) -> str:
     }
     return translations.get(waste_type, waste_type) # Return original if no translation found
 
+# Function to get a list of all supported waste types in our application
+# This helps populate dropdowns and validate user input
+# The list is based on what's available in the St. Gallen waste system
 def get_available_waste_types() -> List[str]:
     """
     Returns a list of available waste types based on the collection dates data.
@@ -525,6 +570,9 @@ def get_available_waste_types() -> List[str]:
     # Let's list the types found in abfuhrdaten-stadt-stgallen.json snippets.
     return ["Kehricht", "Papier", "Karton", "Grüngut", "Altmetall", "Glas", "Dosen","Aluminium", "Alttextilien", "Altöl", "Sonderabfall", "Styropor"]
 
+# The main function that handles waste disposal lookup requests
+# This is the core functionality that combines address lookup, waste type,
+# collection points and scheduled pickups to give users complete information
 def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
     """
     Handles waste disposal lookup based on user address and waste type.
@@ -545,13 +593,14 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
         results["message"] = f"Could not find coordinates for address: {address}. Please try a more specific address."
         return results
     
-    # Get all collection points
+    # Get all collection points from API
     all_points = fetch_collection_points()
     
-    # Get all collection dates
+    # Get all collection dates from API
     all_dates = fetch_collection_dates()
     
-    # Normalize waste type to match the data sources
+   # Normalize waste type to match the data sources
+   # This allows users to enter waste types in English, while our API uses German
     waste_type_original = waste_type
     waste_type_mapping = {
         "paper": "Papier",
@@ -570,7 +619,7 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
     if waste_type.lower() in waste_type_mapping:
         waste_type = waste_type_mapping[waste_type.lower()]
     
-    # 1. Find collection points for the waste type
+    # Find collection points for the waste type
     collection_points = find_collection_points(
         coordinates["lat"], 
         coordinates["lon"], 
@@ -581,7 +630,7 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
     results["collection_points"] = collection_points
     results["has_disposal_locations"] = len(collection_points) > 0
     
-    # 2. Get the next collection date for the waste type
+    # Get the next collection date for the waste type
     street_parts = address.split()
     if len(street_parts) >= 2:
         # Extract full street name without number
@@ -597,10 +646,11 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
     results["next_collection_date"] = next_date
     results["has_scheduled_collection"] = next_date is not None
     
-    # 3. Check for available waste types at this street (for better messaging)
+    # Check for available waste types at this street (for better messaging)
     available_waste_types = set()
     for item in all_dates:
         streets = item.get('strasse', [])
+        # Make sure we are always working with a list, even if it's just one street
         if not isinstance(streets, list):
             streets = [streets]
             
@@ -608,31 +658,34 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
         for s in streets:
             if not isinstance(s, str):
                 continue
-                
+            # We compare street names    
             if s.lower().strip() == street_name.lower().strip():
                 street_found = True
-                break
-                
+                break # We found a match, no need to check the rest
+        # If this street has a collection and a waste type is defined, we store it        
         if street_found and 'sammlung' in item:
             available_waste_types.add(item['sammlung'])
     
-    # 4. Generate appropriate message based on results
+    # Generate appropriate message based on results
     # Get the translated waste type for user-friendly messages
     waste_type_display = translate_waste_type(waste_type)
-    
+
+    # CASE 1: Both options available: home collection + nearby drop-off locations
     if results["has_disposal_locations"] and results["has_scheduled_collection"]:
-        # Both options are available - this is the key scenario you highlighted
-        collection_date_str = next_date['date'].strftime('%A, %B %d, %Y')
-        collection_time_str = next_date.get('time', '')
+        
+        collection_date_str = next_date['date'].strftime('%A, %B %d, %Y') # Format the date nicely
+        collection_time_str = next_date.get('time', '') # Get collection time if available
         
         results["message"] = (
             f"You have two options for {waste_type_display}:\n\n"
             f"1. **Collection from home**: The next collection is on {collection_date_str} {collection_time_str}\n\n"
             f"2. **Drop-off locations**: There are {len(collection_points)} disposal points nearby (see map below)"
         )
+     # CASE 2: Only drop-off points are available, no home collection    
     elif results["has_disposal_locations"]:
         # Create a more informative message about why there's no collection service
         if available_waste_types:
+            # Show the user which types are collected in their area
             available_types_str = ", ".join([translate_waste_type(wt) for wt in available_waste_types])
             results["message"] = (
                 f"{waste_type_display} can be dropped off at {len(collection_points)} nearby locations. "
@@ -644,12 +697,15 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
                 f"{waste_type_display} can be dropped off at {len(collection_points)} nearby locations. "
                 f"There is no scheduled home collection service for this waste type in your area."
             )
+    # CASE 3: Only home collection is available (no drop-off points found)        
     elif results["has_scheduled_collection"]:
         collection_date_str = next_date['date'].strftime('%A, %B %d, %Y')
         collection_time_str = next_date.get('time', '')
-        
+
+    # CASE 4: Neither drop-off points nor home collection found
     else:
         # Try to check if this waste type is typically collected
+        # Check if the waste type is usually collected by default (like paper or household waste)
         typical_collection_types = ["Papier", "Karton", "Kehricht", "Grüngut"]
         
         if available_waste_types:
@@ -670,5 +726,6 @@ def handle_waste_disposal(address: str, waste_type: str) -> Dict[str, Any]:
                 f"No disposal options found for {waste_type_display}. "
                 f"Please check the waste type or contact the local waste management office."
             )
-    
+    # We return the final result, which includes the message, coordinates, date, etc.
     return results
+
