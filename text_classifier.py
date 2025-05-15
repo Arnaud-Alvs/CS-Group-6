@@ -45,3 +45,4 @@ if __name__ == "__main__":
     test_text = "aerosol"
     result = classify_text(test_text)
     print("Predicted category:", result)
+# With support from ChatGPT (OpenAI), consulted for debugging and resolving initial implementation errors - Arnaud Butty
