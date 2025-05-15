@@ -84,3 +84,4 @@ if test_button:
     except Exception as e:
         st.error(f"❌ Test model loading failed: {str(e)}")
         st.error("Check the logs for more details")
+# With support from ChatGPT (OpenAI), consulted for debugging and resolving initial implementation errors - Arnaud Butty
