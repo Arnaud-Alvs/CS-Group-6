@@ -59,3 +59,5 @@ model.fit(train_gen, validation_data=val_gen, epochs=10)
 # 7. saves the model
 model.save("waste_image_classifier.h5")
 print("✅ Training complete! Model saved as waste_image_classifier.h5")
+
+# With support from ChatGPT (OpenAI), consulted for debugging and resolving initial implementation errors - Arnaud Butty
