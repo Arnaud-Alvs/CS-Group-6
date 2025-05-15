@@ -2,13 +2,15 @@
 Find Collection Points page for the WasteWise application.
 """
 
+# Import necessary libraries to run the program
 import streamlit as st
 import sys
 import os
 import folium 
 from streamlit_folium import st_folium
 
-# Page configuration
+
+# Set Streamlit page settings (title, icon, layout, sidebar state)
 st.set_page_config(
     page_title="WasteWise - Find Collection Points",
     page_icon="🚮",
@@ -16,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Hide Streamlit navigation elements
+# Hide Streamlit navigation elements that are not necessary
 hide_streamlit_style = """
 <style>
 [data-testid="stSidebarNavItems"] {
@@ -38,7 +40,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # Add the parent directory to the path to access app.py functions
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Import required functions from the root app module
+# Import all the helper functions from our location_api module
 try:
     from location_api import (
         get_coordinates,
@@ -58,7 +60,7 @@ except ImportError as e:
     st.error(f"Failed to import required functions: {str(e)}")
     st.stop()
 
-# Initialize session state if not already done
+# Store results in session so we can reuse or redisplay them
 if 'waste_info_results' not in st.session_state:
     st.session_state.waste_info_results = None
 if 'show_results' not in st.session_state:
@@ -68,16 +70,17 @@ if 'user_address' not in st.session_state:
 if 'selected_waste_type' not in st.session_state:
     st.session_state.selected_waste_type = ""
 
-# Page header
+# Display the main title of the page
 st.title("🚮 Find Collection Information")
 
+# Determine if user came from image/text identification
 coming_from_identification = (
     st.session_state.show_results and 
     st.session_state.waste_info_results is not None and
     hasattr(st.session_state, 'identified_waste_type') and
     st.session_state.identified_waste_type is not None
 )
-
+# Show welcome instructions if no results have been loaded yet
 if not st.session_state.show_results:
     st.markdown(
         """
@@ -86,14 +89,14 @@ if not st.session_state.show_results:
         upcoming collection dates.
         """
     )
-
+# Show the input form if results don't exist or user wants to search again
 if not st.session_state.show_results or st.checkbox("Search for a different waste type or address"):
-    # Get available waste types
+    # Get available waste types from the API
     available_waste_types_german = get_available_waste_types()
     available_waste_types_english = [translate_waste_type(wt) for wt in available_waste_types_german]
     waste_type_mapping = dict(zip(available_waste_types_english, available_waste_types_german))
 
-    # Input form
+    # Form where the user chooses the waste type and enters their address (input from the user)
     with st.form(key="waste_search_form"):
         selected_waste_type_english = st.selectbox(
             "Select Waste Type:",
@@ -223,3 +226,6 @@ with st.sidebar:
 # Footer
 st.markdown("---")
 st.markdown("© 2025 WasteWise - University Project | [Contact](mailto:contact@wastewise.example.com) | [Legal notice](https://example.com)")
+
+# This file was created with the help of Claude AI to help with correcting mistakes - Arnaud Alves
+# The documentation (comments) were done with the help of ChatGPT - Noah Pittet
