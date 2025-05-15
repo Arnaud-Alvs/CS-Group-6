@@ -1,3 +1,4 @@
+# imports streamlit
 import streamlit as st 
 
 st.set_page_config(
@@ -7,7 +8,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Hide ALL built-in Streamlit navigation elements
+# Hide all built-in Streamlit navigation elements using CSS 
 hide_streamlit_style = """
 <style>
 /* Hide the default sidebar navigation */
@@ -33,6 +34,7 @@ section[data-testid="stSidebar"] > div {
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
+# imports the necessary libraries
 import pandas as pd
 import requests
 import sys
@@ -40,10 +42,10 @@ import os
 import time
 from PIL import Image 
 
-# Add the parent directory to the path to access app.py functions
+# Adds the parent directory to the path to access app.py functions
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Import any functions we might need
+# Imports any functions we might need
 try:
     from app import (
         check_ml_models_available, 
@@ -52,10 +54,10 @@ try:
 except ImportError as e:
     st.error(f"Failed to import required functions: {str(e)}")
     
-# Page header
+# sets up a page header
 st.title("ℹ️ About WasteWise")
 
-# Project description
+# creates a project description
 st.markdown("""
 ## Our mission
 
@@ -79,28 +81,31 @@ This application is built with:
 - **Data processing**: to analyze and classify waste
 """)
 
-# Team section
+# sets up a team section
 st.markdown("## Our Team")
 
-# Create a nicer team layout with columns
+# Creates a nicer team layout with columns
 col1, col2, col3, col4, col5= st.columns(5)
 
 image_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "photos")
 
+# creates a column with position and picture for Andreas
 with col1:
     st.markdown("### Project Lead")
     photo1 = Image.open("photos/Andreas-Jonas-Lucchini.jpg")
     st.image(photo1, width=150)
-    st.markdown("**Andreas l'italien**")
+    st.markdown("**Andreas Lucchini**")
     st.markdown("Porject Management")
-    
+
+# creates a column with position and picture for Arnaud 
 with col2:
     st.markdown("### Backend Developer")
     photo2 = Image.open("photos/Arnaud_Alves_photo.jpg")
     st.image(photo2, width=150)
     st.markdown("**Arnaud Alves**")
     st.markdown("API Integration & Machine Learning")
-    
+
+# creates a column with position and picture for Arnaud 
 with col3:
     st.markdown("### Frontend Developer")
     photo3 = Image.open("photos/new_arnaud_butty.jpg")
@@ -108,6 +113,7 @@ with col3:
     st.markdown("**Arnaud Butty**")
     st.markdown("API Integration & Machine Learning")
 
+# creates a column with position and picture for Noah
 with col4:
     st.markdown("### Frontend Developer")
     photo4 = Image.open("photos/noah.jpg")
@@ -115,6 +121,7 @@ with col4:
     st.markdown("**Noah Pittet**")
     st.markdown("UI/UX Design")
 
+# creates a column with position and picture for Sebastien
 with col5:
     st.markdown("### Video creation")
     photo5 = Image.open("photos/seb.jpg")
@@ -126,6 +133,8 @@ with col5:
 st.markdown("## Your feedback matters")
 st.write("Help us improve WasteWise by sharing your suggestions:")
 
+
+# sets up a section with feedback from the user to implement user interaction and improve the webapp
 with st.form("feedback_form"):
     feedback_text = st.text_area("Your comments and suggestions")
     user_email = st.text_input("Your email (optional)")
@@ -133,15 +142,15 @@ with st.form("feedback_form"):
     
     if submit_button:
         if feedback_text:
-            # Simulate sending feedback
+    
             with st.spinner("Sending feedback..."):
-                time.sleep(1)  # Simulate network delay
+                time.sleep(1)  
                 st.success("Thank you for your feedback! We have received it.")
-                # In a real project, you would record this feedback in a database
+                
         else:
             st.error("Please enter a comment before sending.")
 
-# Privacy policy / Terms of service
+# creates a section with privacy policy and Terms of service
 st.markdown("## Privacy & Terms")
 with st.expander("Privacy Policy"):
     st.markdown("""
@@ -176,14 +185,14 @@ with st.sidebar:
     st.title("WasteWise")
     st.markdown("Your smart recycling assistant")
     
-    # Navigation
+    # sets up a navigation page 
     st.markdown("## Navigation")
     st.page_link("pages/1_Home.py", label="Home", icon="🏠")
     st.page_link("pages/2_Find_Collection_Points.py", label="Find Collection Points", icon="🚮")
     st.page_link("pages/3_Identify_Waste.py", label="Identify Waste", icon="🔍")
     st.page_link("pages/4_About.py", label="About", icon="ℹ️")
     
-    # Useful links
+    # creates a section with useful links
     st.markdown("## Useful Links")
     st.markdown("[Complete recycling guide](https://www.stadt.sg.ch/home/umwelt-energie/entsorgung.html)")
     st.markdown("[Reducing waste in everyday life](https://www.bafu.admin.ch/bafu/en/home/topics/waste/guide-to-waste-a-z/avoiding-waste.html)")
@@ -193,3 +202,4 @@ with st.sidebar:
 # Footer
 st.markdown("---")
 st.markdown("© 2025 WasteWise - University Project | [Contact](mailto:contact@wastewise.example.com) | [Legal notice](https://example.com)")
+# With support from ChatGPT (OpenAI), consulted for debugging, commenting and resolving initial implementation errors - Arnaud Butty
