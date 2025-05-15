@@ -169,7 +169,7 @@ def download_model_from_reliable_source(model_path):
         return False
     except Exception as e:
         logger.error(f"Unexpected error downloading model: {str(e)}")
-        # Clean up any partial download
+        # Cleans up any partial download
         try:
             if model_path and os.path.exists(model_path):
                 os.remove(model_path)
@@ -204,13 +204,13 @@ def load_image_model():
         else:
             logger.info(f"Model already exists at {model_path}")
         
-        # Load the model from the local path
+        # Loads the model from the local path
         try:
             logger.info(f"Loading model from {model_path}")
             model = tf.keras.models.load_model(model_path, compile=False)
             logger.info("Model loaded successfully!")
             
-            # Verify model structure
+            # Verifies model structure
             logger.info(f"Model input shape: {model.input_shape}")
             logger.info(f"Model output shape: {model.output_shape}")
             
@@ -492,3 +492,5 @@ if __name__ == "__main__":
 
 # tries to switch to main page of the app
     st.switch_page("pages/1_Home.py")
+
+# With support from ChatGPT (OpenAI), consulted for debugging, comments and resolving initial implementation errors - Arnaud Butty
