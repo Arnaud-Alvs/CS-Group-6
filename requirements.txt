@@ -27,3 +27,5 @@ folium
 streamlit-folium # Makes folium maps work smoothly inside the Streamlit app
 # Used for building and running image classification models (ML based on images)
 tensorflow>=2.15.0
+
+# With support from ChatGPT (OpenAI), consulted for debugging and resolving initial implementation errors - Arnaud Butty
