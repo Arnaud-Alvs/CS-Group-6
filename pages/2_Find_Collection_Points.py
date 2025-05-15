@@ -1,3 +1,6 @@
+# This is the page displayed on the app with the information/ function to find collection points
+# It uses the information from location_api 
+
 """
 Find Collection Points page for the WasteWise application.
 """
