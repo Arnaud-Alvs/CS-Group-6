@@ -1,10 +1,10 @@
-# Import necessary libraries
+# Imports necessary libraries
 import streamlit as st
 import random
 from PIL import Image
 import os
 
-# Set up page-wide configuration (must be done first before anything else appears)
+# Sets up page-wide configuration (must be done first before anything else appears)
 st.set_page_config(
     page_title="WasteWise - Home",
     page_icon="♻️",
@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Hide default Streamlit elements that we don’t want (like built-in navigation)
+# Hides default Streamlit elements that we don’t want (like built-in navigation)
 hide_streamlit_style = """
 <style>
 /* Hide the default sidebar navigation */
@@ -41,17 +41,17 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Main content
 
-# Display the title at the top of the homepage
+# Displays the title at the top of the homepage
 st.title("♻️ WasteWise - Your smart recycling assistant")
 
 
-# Describe the main features with headings and buttons
+# Describes the main features with headings and buttons
 st.markdown("## What can WasteWise do for you?")
 
-# Divide the space into two columns
+# Divides the space into two columns
 col1, col2 = st.columns(2)
 
-# Left column — Finding collection points
+# sets up a left column for finding collection points
 with col1:
     st.markdown("### 🚮 Find Collection Points")
     st.markdown("""
@@ -60,7 +60,7 @@ with col1:
     """)
     st.page_link("pages/2_Find_Collection_Points.py", label="Find Disposal Options", icon="🔍")
 
-# Right column — Identifying waste
+# sets up a right column  for Identifying waste
 with col2:
     st.markdown("### 🔍 Identify Your Waste")
     st.markdown("""
@@ -72,7 +72,8 @@ with col2:
 # Tips of the day section
 st.markdown("---")
 st.subheader("💡 Tip of the Day")
-# List of random environmental tips
+
+# creates a list of random environmental tips
 tips_of_the_day = [
     "Recycling one aluminum can saves enough energy to run a TV for three hours.",
     "Paper can be recycled up to 7 times before the fibers become too short.",
@@ -84,13 +85,13 @@ tips_of_the_day = [
     "Remember to break down cardboard packaging before disposing of it to save space.",
     "LED bulbs are less harmful to the environment and last longer."
 ]
-# Randomly show one tip each time the page is refreshed
+# Randomly shows one tip each time the page is refreshed
 st.info(random.choice(tips_of_the_day))
 
 # Environmental impact section
 st.markdown("## Environmental Impact")
 
-# Split the screen into 3 columns to show key impact metrics
+# Splits the screen into 3 columns to show key impact metrics
 impact_col1, impact_col2, impact_col3 = st.columns(3)
 
 with impact_col1:
@@ -103,19 +104,19 @@ with impact_col3:
     st.metric(label="Active Users", value="853", delta="57 new")
 
 
-# SIDEBAR SETUP
+# sets a SIDEBAR 
 with st.sidebar:
     st.title("WasteWise")
     st.markdown("Your smart recycling assistant")
     
-    # Main navigation links
+    # sets up the smart links to the other pages for navigation 
     st.markdown("## Navigation")
     st.page_link("pages/1_Home.py", label="Home", icon="🏠")
     st.page_link("pages/2_Find_Collection_Points.py", label="Find Collection Points", icon="🚮")
     st.page_link("pages/3_Identify_Waste.py", label="Identify Waste", icon="🔍")
     st.page_link("pages/4_About.py", label="About", icon="ℹ️")
     
-    # Useful links
+    # shows and displays seful links
     st.markdown("## Useful Links")
     st.markdown("[Complete recycling guide](https://www.stadt.sg.ch/home/umwelt-energie/entsorgung.html)")
     st.markdown("[Reducing waste in everyday life](https://www.bafu.admin.ch/bafu/en/home/topics/waste/guide-to-waste-a-z/avoiding-waste.html)")
@@ -125,3 +126,4 @@ with st.sidebar:
 # Footer
 st.markdown("---")
 st.markdown("© 2025 WasteWise - University Project | [Contact](mailto:contact@wastewise.example.com) | [Legal notice](https://example.com)")
+# With support from ChatGPT (OpenAI), consulted for debugging and resolving initial implementation errors
