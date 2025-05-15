@@ -1,7 +1,10 @@
+# This script trains a ML image recognition model 
+# Using Tensorflow and Keras, it classifies and recognises 13 different waste types
+# We first import the necessary libraries 
 import os
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+from tensorflow.keras.preprocessing.image import ImageDataGenerator # used to handle the training of the model
+from tensorflow.keras.models import Sequential # used to handle the training of the model
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense # used to handle the training of the model
 
 # 1. Points to the desktop to search for the folder
 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
